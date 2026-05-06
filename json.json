@@ -1,0 +1,24 @@
+{
+  "repo": {
+    "name": "InstaPhish",
+    "author": "r4tur1",
+    "url": "https://github.com/r4tur1/InstaPhish",
+    "files": {
+      "instaphish.py": "Main MITM phishing engine",
+      "setup.sh": "Auto-setup for Termux/Kali",
+      "config.json": "Configuration file",
+      "phishlets/instagram.yaml": "Instagram phishlet configuration",
+      "admin_panel.py": "Web-based victim monitoring panel",
+      "requirements.txt": "Python dependencies",
+      "certs/": "SSL certificate directory",
+      "logs/": "Captured credentials storage",
+      "lures/": "Phishing lure templates",
+      "bypasses/": "2FA bypass modules"
+    },
+    "monetization_tiers": {
+      "free": "50 captures limit, no 2FA bypass",
+      "pro": "$49.99 - 500 captures, 2FA bypass, cloud hosting",
+      "enterprise": "$199.99 - Unlimited captures, custom phishlets, API access, priority support"
+    }
+  }
+}
