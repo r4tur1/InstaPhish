@@ -1,0 +1,97 @@
+===================================================
+InstaPhish - Social Engineering Lure Templates
+Author: r4tur1
+===================================================
+
+---
+
+LURE 1: SUSPICIOUS LOGIN ALERT
+
+Subject: ⚠️ Suspicious Login Attempt on Your Instagram Account
+
+Body:
+Hi,
+
+We noticed a login attempt to your Instagram account @{username} from an unrecognized device in {location}.
+
+Location: {city}, {country}
+Device: {device}
+IP Address: {ip}
+Time: {time}
+
+If this was you, please confirm:
+{phishing_link}
+
+If this wasn't you, secure your account immediately:
+{phishing_link}
+
+- Instagram Security Team
+
+---
+
+LURE 2: VERIFICATION REQUIRED
+
+Subject: Action Required: Verify Your Instagram Account
+
+Body:
+Your Instagram account has been flagged for verification due to recent policy updates.
+
+Failure to verify within 24 hours may result in account restriction.
+
+Please verify now: {phishing_link}
+
+Thank you,
+Instagram Support
+
+---
+
+LURE 3: COPYRIGHT VIOLATION NOTICE
+
+Subject: ⚡ Urgent: Copyright Violation on Your Instagram Post
+
+Body:
+Dear User,
+
+We have received a copyright complaint regarding content posted on your Instagram account.
+
+To appeal this violation and prevent content removal, please review the complaint:
+{phishing_link}
+
+Case ID: #IG-{random_number}
+Deadline: {date}
+
+- Instagram Legal Team
+
+---
+
+LURE 4: VERIFIED BADGE OFFER
+
+Subject: 🎉 Congratulations! You're Eligible for Instagram Verification
+
+Body:
+Great news! Your account has been selected for Instagram verification.
+
+Claim your verified badge before this offer expires:
+{phishing_link}
+
+Note: Limited availability. First come, first served.
+
+- Instagram Community Team
+
+---
+
+LURE 5: FOLLOWER GROWTH
+
+Subject: 📈 Your Instagram Account is Growing Fast!
+
+Body:
+Congrats {username}!
+
+Your Instagram account has gained {follower_count} new followers this week.
+
+See your full analytics and insights:
+{phishing_link}
+
+- Instagram for Creators
+
+===================================================
